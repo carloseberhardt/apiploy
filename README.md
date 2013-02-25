@@ -13,7 +13,7 @@ Installation
 Usage
 -----
 
-    ./apiploy [options] <apiproxy directory>le))
+    ./apiploy [options] <apiproxy directory>
 
 
 Testing
