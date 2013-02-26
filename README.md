@@ -8,7 +8,7 @@ Gateway.
 Installation
 -----------
 
-    copy the script to local directory
+To install, copy the script to the directory that holds directories that contain api proxy definition projects..
 
 
 Usage
