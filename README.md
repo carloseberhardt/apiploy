@@ -75,10 +75,10 @@ all the options each time you invoke the script.
 
 Example contents:
 
-  org=demo11
-  environment=test
-  credentials=scott:tiger
-  rev=1
+   org=demo11
+   environment=test
+   credentials=scott:tiger
+   rev=1
 
 
 You should specify the file pushapiDefaults in your .gitignore file to
