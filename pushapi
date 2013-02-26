@@ -1,29 +1,41 @@
-# import settings
-# add 'settings' to your .gitignore so you don't accidentally a file to github
-# settings looks like:
-# ## Credentials Keep it secret, keep it safe
-# credentials=username:password
+#!/bin/bash
+# -*- mode:shell-script; coding:utf-8; -*-
+#
+# pushapi
+#
+# A bash script that deploys of API bundles to the
+# Apigee Gateway.
+#
 
-# ## defaults
+## defaults
+environment=test
+url=https://api.enterprise.apigee.com
+
+# import flexDeployDefaults
+# This is just a file with credentials=user:password in it, and other default settings.
+#
+# NB: you should add pushapiDefaults to the .gitignore to avoid uploading
+# apigee creds to github.
+
+# credentials=username:password
 # org=org-name
 # environment=environment_name (e.g. test)
 # url=api_management_url (as of coding, https://api.enterprise.apigee.com)
 # rev=revision_number (e.g. 1)
 
-. settings
+. pushapiDefaults
 
 # TODO: should we default to creating a new revision?
 # TODO: this would require some conditional logic down below, I assume.
-
 
 function usage() {
   local CMD=`basename $0`
   echo "$CMD: Deploy an API proxy to the Apigee Gateway."
   echo "  Uses the curl utility, which must be available on the path."
   echo "usage: "
-  echo "  $CMD [-c creds] [-e new_env_name] [-o orgname] [-r revision] application"
+  echo "  $CMD [-c creds] [-e env_name] [-o org_name] [-r revision_number] application"
   echo
-  echo "Values"
+  echo "Current Values:"
   echo "   org: $org"
   echo "   env: $environment"
   echo "   rev: $rev"
@@ -33,7 +45,7 @@ function usage() {
   exit 1
 }
 
-while getopts "h:e:o:c:r:" opt; do
+while getopts "he:o:c:r:" opt; do
   case $opt in
     h) usage ;;
     e) environment=$OPTARG ;;
@@ -62,6 +74,16 @@ if [ ! -d "$application" ]; then
     usage
     exit 1
 fi
+
+
+if ! [[ "$rev" =~ ^[0-9]+$ ]] ; then
+    echo "Bad revision: $rev"
+    echo "The revision must be a number."
+    echo
+    usage
+    exit 1
+fi
+
 
 ## function MYCURL_Q
 ## Print the curl command, omitting sensitive parameters, then run it.
