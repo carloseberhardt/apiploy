@@ -8,7 +8,7 @@ Gateway.
 Installation
 -----------
 
-To install, copy the script to the directory that holds directories that contain api proxy definition projects..
+To install, copy the script to the directory that holds directories that contain api proxy definition projects.
 
 
 Usage
@@ -89,7 +89,7 @@ avoid uploading secrets to the git repo.
 Known Bugs
 ----------
 
-Does not echo error messaged to stderr.
+Does not send error messages to stderr.
 
 
 Testing
