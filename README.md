@@ -21,17 +21,17 @@ The apiproxy directory must contain the definition of the API proxy. For
 example, if the name of the directory is "myproxy" then the structure of
 that directory ought to be like this:
 
-  myproxy/
-  myproxy/apiproxy/
-  myproxy/apiproxy/myproxy.xml
-  myproxy/apiproxy/proxies/
-  myproxy/apiproxy/proxies/...
-  myproxy/apiproxy/resources/
-  myproxy/apiproxy/resources/...
-  myproxy/apiproxy/stepdefinitions/
-  myproxy/apiproxy/stepdefinitions/...
-  myproxy/apiproxy/targets/
-  myproxy/apiproxy/targets/...
+    myproxy/
+    myproxy/apiproxy/
+    myproxy/apiproxy/myproxy.xml
+    myproxy/apiproxy/proxies/
+    myproxy/apiproxy/proxies/...
+    myproxy/apiproxy/resources/
+    myproxy/apiproxy/resources/...
+    myproxy/apiproxy/stepdefinitions/
+    myproxy/apiproxy/stepdefinitions/...
+    myproxy/apiproxy/targets/
+    myproxy/apiproxy/targets/...
 
 The pushapi script uses the name of the toplevel directory as the
 name of the API proxy bundle.
@@ -42,7 +42,7 @@ options are -e -o -c and -r respectively.
 
 Example: To deploy an API called xyz-xform to the test environment in the demo11 org:
 
-   ./pushapi  -o demo11 -e test xyz-xform
+    ./pushapi  -o demo11 -e test xyz-xform
 
 In this case there should be a directory called xyz-xform in the
 current directory, and it should contain exactly one
@@ -75,10 +75,10 @@ all the options each time you invoke the script.
 
 Example contents:
 
-   org=demo11
-   environment=test
-   credentials=scott:tiger
-   rev=1
+    org=demo11
+    environment=test
+    credentials=scott:tiger
+    rev=1
 
 
 You should specify the file pushapiDefaults in your .gitignore file to
