@@ -90,7 +90,7 @@ avoid uploading secrets to the git repo.
 Known Bugs
 ----------
 
-There is no "quiet" mode.
+1. There is no "quiet" mode.
 
 
 Testing
