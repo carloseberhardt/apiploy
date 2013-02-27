@@ -68,7 +68,7 @@ It uses cURL for the commands; it echoes the curl commands as it runs them, and 
 Default Settings
 ----------------
 
-The file pushapiDefaults can contain settings for the org, env,
+The file .pushapi can contain settings for the org, env,
 credentials and revision. This file is sourced from within
 pushapi itself. This can eliminate the need for you to specify
 all the options each time you invoke the script.
@@ -81,15 +81,14 @@ Example contents:
     rev=1
 
 
-You should specify the file pushapiDefaults in your .gitignore file to
+You should specify the file .pushapi in your .gitignore file to
 avoid uploading secrets to the git repo.
-
 
 
 Known Bugs
 ----------
 
-Does not send error messages to stderr.
+There is no "quiet" mode.
 
 
 Testing

@@ -11,10 +11,10 @@
 environment=test
 url=https://api.enterprise.apigee.com
 
-# import flexDeployDefaults
+# import .pushapi
 # This is just a file with credentials=user:password in it, and other default settings.
 #
-# NB: you should add pushapiDefaults to the .gitignore to avoid uploading
+# NB: you should add .pushapi to the .gitignore to avoid uploading
 # apigee creds to github.
 
 # credentials=username:password
@@ -23,10 +23,12 @@ url=https://api.enterprise.apigee.com
 # url=api_management_url (as of coding, https://api.enterprise.apigee.com)
 # rev=revision_number (e.g. 1)
 
-. pushapiDefaults
+. .pushapi
 
 # TODO: should we default to creating a new revision?
 # TODO: this would require some conditional logic down below, I assume.
+
+function echoerror() { echo "$@" 1>&2; }
 
 function usage() {
   local CMD=`basename $0`
@@ -58,28 +60,29 @@ done
 
 shift $(($OPTIND - 1))
 
+## allow for an application directory that is not local
 application=`basename $1`
 
 if [ -z "$application" ]; then
-  echo "Specify an application."
-  echo
+  echoerror "You must specify an application."
+  echoerror
   usage
   exit 1
 fi
 
 if [ ! -d "$application" ]; then
-    echo "The directory does not exist."
-    echo "The application name you specify must refer to a directory."
-    echo
+    echoerror "The directory does not exist."
+    echoerror "The application name you specify must refer to a directory."
+    echoerror
     usage
     exit 1
 fi
 
 
 if ! [[ "$rev" =~ ^[0-9]+$ ]] ; then
-    echo "Bad revision: $rev"
-    echo "The revision must be a number."
-    echo
+    echoerror "Bad revision: $rev"
+    echoerror "The revision must be a number."
+    echoerror
     usage
     exit 1
 fi
@@ -152,12 +155,14 @@ cat ${CURL_OUT}; echo
 
 if [[ ! ${CURL_RC} =~ 201 ]]; then
   echo
-  echo "there was an error importing that API bundle..."
+  echoerror "there was an error importing that API bundle..."
 else
   # deploy
   MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis/$application/revisions/$rev/deployments?action=deploy&env=$environment"
   if [[ ! ${CURL_RC} =~ 200 ]]; then
-    cat ${CURL_OUT}; echo
+    echo
+    echoerror "There was an error deploying that API bundle."
+    cat ${CURL_OUT} 1>&2;
   fi
 fi
 
