@@ -62,7 +62,9 @@ The sript does this:
  - deploys the bundle
  - deletes the just-uploaded zip
 
-It uses cURL for the commands; it echoes the curl commands as it runs them, and checks the status upon failure.
+It uses cURL for the commands; it echoes the cURL commands as it runs
+them, and checks the output status of those commands in order to handle
+failures.
 
 
 Default Settings
