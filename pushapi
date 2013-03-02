@@ -39,13 +39,14 @@ function usage() {
   echo "  $CMD [-q] [-c creds] [-e env_name] [-o org_name] [-r revision_number] application"
   echo
   echo "Current parameter values:"
-  echo "   org: $org"
-  echo "   env: $environment"
-  echo "   rev: $rev"
-  echo "   url: $url"
-  echo "   app: $application"
+  echo "  organization: $org"
+  echo "   environment: $environment"
+  echo "      revision: $rev"
+  echo "           url: $url"
+  echo "   application: $application"
+  echo "     verbosity: $verbosity"
   echo
-  echo "Current verbosity is $verbosity. You can decrease it by 1 by using -q."
+  echo "You can decrease $verbosity by 1 using the -q option."
   echo
   exit 1
 }
