@@ -36,7 +36,7 @@ function usage() {
   echo "$CMD: Deploy an API proxy to the Apigee Gateway."
   echo "  Uses the curl utility, which must be available on the path."
   echo "usage: "
-  echo "  $CMD [-q] [-c creds] [-e env_name] [-o org_name] [-r revision_number] application"
+  echo "  $CMD [-q] [-v] [-c creds] [-e env_name] [-o org_name] [-r revision_number] application"
   echo
   echo "Current parameter values:"
   echo "  organization: $org"
@@ -46,7 +46,8 @@ function usage() {
   echo "   application: $application"
   echo "     verbosity: $verbosity"
   echo
-  echo "You can decrease $verbosity by 1 using the -q option."
+  echo "You can decrease $verbosity by 1 using the -q option, or "
+  echo "increase it with -v."
   echo
   exit 1
 }
@@ -69,10 +70,11 @@ function timer() {
 
 starttime=$(timer)
 
-while getopts "qhe:o:c:r:" opt; do
+while getopts "vqhe:o:c:r:" opt; do
   case $opt in
     h) usage ;;
     q) verbosity=$(($verbosity-1)) ;;
+    v) verbosity=$(($verbosity+1)) ;;
     e) environment=$OPTARG ;;
     o) org=$OPTARG ;;
     c) credentials=$OPTARG ;;

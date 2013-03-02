@@ -49,8 +49,11 @@ current directory, and it should contain exactly one
 subdirectory, called apiproxy, and in there should be all the
 relevant apigee Gateway proxy definition files.
 
-There is also a -q option for "quiet" operation.  If you use two -q's
-then you get "silent" operation.
+There is also a -q option for "quiet" operation.  By default, you
+use two -q's then you get "silent" operation. There is a
+complementary -v option to increase verbosity. The -v option
+works only if you have set verbosity lower than 2, with the
+default settings file. More about that file later.
 
 
 How it Works
@@ -73,10 +76,11 @@ failures.
 Default Settings
 ----------------
 
-The file .pushapi can contain settings for the org, env, credentials,
-revision, and verbosity. This file is sourced from within pushapi
-itself. This can eliminate the need for you to specify all the options
-each time you invoke the script.
+The file .pushapi can contain settings for the org, env,
+credentials, revision, and verbosity. This file is sourced from
+within pushapi itself. This can eliminate the need for you to
+specify all the options each time you invoke the script. Don't
+put syntax errors in this settings file.
 
 Example contents:
 
