@@ -10,6 +10,7 @@
 ## defaults
 environment=test
 url=https://api.enterprise.apigee.com
+verbosity=2
 
 # import .pushapi
 # This is just a file with credentials=user:password in it, and other default settings.
@@ -35,40 +36,42 @@ function usage() {
   echo "$CMD: Deploy an API proxy to the Apigee Gateway."
   echo "  Uses the curl utility, which must be available on the path."
   echo "usage: "
-  echo "  $CMD [-c creds] [-e env_name] [-o org_name] [-r revision_number] application"
+  echo "  $CMD [-q] [-c creds] [-e env_name] [-o org_name] [-r revision_number] application"
   echo
-  echo "Current Values:"
+  echo "Current parameter values:"
   echo "   org: $org"
   echo "   env: $environment"
   echo "   rev: $rev"
   echo "   url: $url"
   echo "   app: $application"
   echo
+  echo "Current verbosity is $verbosity. You can decrease it by 1 by using -q."
+  echo
   exit 1
 }
 
 function timer() {
-    if [[ $# -eq 0 ]]; then
-        echo $(date '+%s')
-    else
-        local  stime=$1
-        etime=$(date '+%s')
-        if [[ -z "$stime" ]]; then stime=$etime; fi
-        dt=$((etime - stime))
-        ds=$((dt % 60))
-        dm=$(((dt / 60) % 60))
-        dh=$((dt / 3600))
-        printf '%d:%02d:%02d' $dh $dm $ds
-    fi
+  if [[ $# -eq 0 ]]; then
+      echo $(date '+%s')
+  else
+      local  stime=$1
+      etime=$(date '+%s')
+      if [[ -z "$stime" ]]; then stime=$etime; fi
+      dt=$((etime - stime))
+      ds=$((dt % 60))
+      dm=$(((dt / 60) % 60))
+      dh=$((dt / 3600))
+      printf '%d:%02d:%02d' $dh $dm $ds
+  fi
 }
-
 
 
 starttime=$(timer)
 
-while getopts "he:o:c:r:" opt; do
+while getopts "qhe:o:c:r:" opt; do
   case $opt in
     h) usage ;;
+    q) verbosity=$(($verbosity-1)) ;;
     e) environment=$OPTARG ;;
     o) org=$OPTARG ;;
     c) credentials=$OPTARG ;;
@@ -121,7 +124,6 @@ function MYCURL_Q() {
   local ix
   local ix2
   local re
-  echo
   re="^(-[du]|--user)$" # the curl options to not echo
   # grab the curl args, but skip the basic auth and the payload, if any.
   while [ "$1" ]
@@ -141,71 +143,97 @@ function MYCURL_Q() {
 
   [ -z "${CURL_OUT}" ] && CURL_OUT=`mktemp /tmp/apigee-add-env.curl.out.XXXXXX`
 
-  # emit the curl command, without the auth + payload
-  ##echo "curl ${allargs[@]}"
-  echo "curl ${outargs[@]}"
+  if [ $verbosity -gt 1 ]; then
+    # emit the curl command, without the auth + payload
+    echo
+    echo "curl ${outargs[@]}"
+  fi
   # run the curl command
   CURL_RC=`curl -s -w "%{http_code}" -o "${CURL_OUT}" "${allargs[@]}"`
-  # emit the http status code
-  echo "==> ${CURL_RC}"
+  if [ $verbosity -gt 1 ]; then
+    # emit the http status code
+    echo "==> ${CURL_RC}"
+    echo
+  fi
 }
 
-echo
-echo "Getting deployments..."
+if [ $verbosity -gt 0 ]; then
+  echo
+  echo "Getting deployments..."
+fi
 # un-deploy and delete the existing revision $rev
 MYCURL_Q -u ${credentials} -X GET   "${url}/v1/o/$org/apis/$application/revisions/$rev/deployments"
 if [[ ! ${CURL_RC} =~ 404 ]]; then
-    echo
-    echo "Undeploy..."
-    MYCURL_Q -u ${credentials} -X POST   "${url}/v1/o/$org/apis/$application/revisions/$rev/deployments?action=undeploy&env=$environment"
+  if [ $verbosity -gt 0 ]; then
+    echo "Undeploying..."
+  fi
+  MYCURL_Q -u ${credentials} -X POST   "${url}/v1/o/$org/apis/$application/revisions/$rev/deployments?action=undeploy&env=$environment"
+  ## TODO: check return status, exit on fail.
 
-    echo
-    echo "Deleting the existing revision (if exists)..."
-    MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$application/revisions/$rev"
-    ## no check of return status. Should check, exit on fail.
+  if [ $verbosity -gt 0 ]; then
+    echo "Deleting the existing revision..."
+  fi
+  MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$application/revisions/$rev"
+  ## TODO: check return status, exit on fail.
 fi
 
-echo
-echo "Creating the zip..."
+if [ $verbosity -gt 0 ]; then
+  echo "Creating the zip..."
+fi
 # create the bundle zip
 if [ -f $application.zip ]; then
   rm -rf $application.zip
 fi
 cd $application
-zip -r ../$application.zip apiproxy -x "*/*.*~"
+ZIP_OUT=`zip -r ../$application.zip apiproxy -x "*/*.*~"`
 cd ..
-unzip -l $application.zip
-echo
+if [ $verbosity -gt 1 ]; then
+  #echo $ZIP_OUT
+  unzip -l $application.zip
+  echo
+fi
 
 # import
-echo
-echo "Importing the bundle..."
+if [ $verbosity -gt 0 ]; then
+  echo "Importing the bundle..."
+fi
 MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis?action=import&name=$application" -T $application.zip -H "Content-Type: application/octet-stream"
-cat ${CURL_OUT}; echo
+if [ $verbosity -gt 1 ]; then
+  cat ${CURL_OUT}
+  echo
+  echo
+fi
 
 if [[ ! ${CURL_RC} =~ 201 ]]; then
   echo
   echoerror "there was an error importing that API bundle..."
 else
   # deploy
-  echo
-  echo "Deploying the bundle..."
+  if [ $verbosity -gt 0 ]; then
+    echo "Deploying the API revision..."
+  fi
   MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis/$application/revisions/$rev/deployments?action=deploy&env=$environment"
   if [[ ! ${CURL_RC} =~ 200 ]]; then
     echo
-    echoerror "There was an error deploying that API bundle."
+    echoerror "There was an error deploying that revision of the API."
     cat ${CURL_OUT} 1>&2;
   fi
 fi
 
+
 if [ -f $application.zip ]; then
-  echo
-  echo "Deleting $application.zip..."
+  if [ $verbosity -gt 0 ]; then
+    echo "Deleting $application.zip..."
+  fi
   rm -rf $application.zip
 fi
 
-echo
-echo "done"
-date +"%Y-%m-%d %H:%M:%S"
-printf 'Elapsed time: %s\n' $(timer $starttime)
-echo
+if [ $verbosity -gt 1 ]; then
+  echo
+  echo "done"
+  date +"%Y-%m-%d %H:%M:%S"
+fi
+if [ $verbosity -gt 0 ]; then
+  printf 'Elapsed time: %s\n' $(timer $starttime)
+  echo
+fi
