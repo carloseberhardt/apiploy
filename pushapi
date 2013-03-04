@@ -36,7 +36,15 @@ function usage() {
   echo "$CMD: Deploy an API proxy to the Apigee Gateway."
   echo "  Uses the curl utility, which must be available on the path."
   echo "usage: "
-  echo "  $CMD [-q] [-v] [-c creds] [-e env_name] [-o org_name] [-r revision_number] application"
+  echo "  $CMD [options] application"
+  echo "options: "
+  echo "  -o org    the org to use."
+  echo "  -e env    the environment to deploy to."
+  echo "  -r rev    the revision number to use."
+  echo "  -u url    the base server url to use."
+  echo "  -c creds  authn credentials for the API calls."
+  echo "  -q        quiet; decrease verbosity by 1"
+  echo "  -v        verbose; increase verbosity by 1"
   echo
   echo "Current parameter values:"
   echo "  organization: $org"
@@ -46,8 +54,7 @@ function usage() {
   echo "   application: $application"
   echo "     verbosity: $verbosity"
   echo
-  echo "You can decrease $verbosity by 1 using the -q option, or "
-  echo "increase it with -v."
+  echo "You can specify default settings in the .pushapi file."
   echo
   exit 1
 }
@@ -67,10 +74,9 @@ function timer() {
   fi
 }
 
-
 starttime=$(timer)
 
-while getopts "vqhe:o:c:r:" opt; do
+while getopts "vqhe:o:c:r:u:" opt; do
   case $opt in
     h) usage ;;
     q) verbosity=$(($verbosity-1)) ;;
@@ -79,6 +85,7 @@ while getopts "vqhe:o:c:r:" opt; do
     o) org=$OPTARG ;;
     c) credentials=$OPTARG ;;
     r) rev=$OPTARG ;;
+    u) url=$OPTARG ;;
     *) usage ;;
   esac
 done
