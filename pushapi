@@ -232,6 +232,7 @@ else
     echo
     echoerror "There was an error deploying that revision of the API."
     cat ${CURL_OUT} 1>&2;
+    echo
   fi
 fi
 
