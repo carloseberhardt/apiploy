@@ -94,6 +94,7 @@ shift $(($OPTIND - 1))
 
 ## allow for an application directory that is not local
 if [ $# -gt 0 ]; then
+  appdir=$1
   application=`basename $1`
 fi
 
@@ -194,9 +195,13 @@ fi
 if [ -f $application.zip ]; then
   rm -rf $application.zip
 fi
-cd $application
-ZIP_OUT=`zip -r ../$application.zip apiproxy -x "*/*.*~"`
-cd ..
+
+curdir=`pwd`
+cd $appdir
+
+ZIP_OUT=`zip -r $curdir/$application.zip apiproxy -x "*/*.*~"`
+cd $curdir
+
 if [ $verbosity -gt 1 ]; then
   #echo $ZIP_OUT
   unzip -l $application.zip
