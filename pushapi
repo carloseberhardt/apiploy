@@ -11,6 +11,7 @@
 environment=test
 url=https://api.enterprise.apigee.com
 verbosity=2
+validate="&validate=true"
 
 # import .pushapi
 # This is just a file with credentials=user:password in it, and other default settings.
@@ -24,7 +25,8 @@ verbosity=2
 # url=api_management_url (as of coding, https://api.enterprise.apigee.com)
 # rev=revision_number (e.g. 1)
 
-. .pushapi
+PDIRNAME=`dirname $0`
+. $PDIRNAME/.pushapi
 
 # TODO: should we default to creating a new revision?
 # TODO: this would require some conditional logic down below, I assume.
@@ -105,7 +107,7 @@ if [ -z "$application" ]; then
   exit 1
 fi
 
-if [ ! -d "$application" ]; then
+if [ ! -d "$1" ]; then
     echoerror "The directory does not exist."
     echoerror "The application name you specify must refer to a directory."
     echoerror
@@ -178,7 +180,7 @@ if [[ ! ${CURL_RC} =~ 404 ]]; then
   if [ $verbosity -gt 0 ]; then
     echo "Undeploying..."
   fi
-  MYCURL_Q -u ${credentials} -X POST   "${url}/v1/o/$org/apis/$application/revisions/$rev/deployments?action=undeploy&env=$environment"
+  MYCURL_Q -u ${credentials} -X POST "${url}/v1/o/$org/apis/$application/revisions/$rev/deployments?action=undeploy&env=$environment"
   ## TODO: check return status, exit on fail.
 
   if [ $verbosity -gt 0 ]; then
@@ -212,7 +214,7 @@ fi
 if [ $verbosity -gt 0 ]; then
   echo "Importing the bundle..."
 fi
-MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis?action=import&name=$application" -T $application.zip -H "Content-Type: application/octet-stream"
+MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis?action=import&name=$application${validate}" -T $application.zip -H "Content-Type: application/octet-stream"
 if [ $verbosity -gt 1 ]; then
   cat ${CURL_OUT}
   echo
