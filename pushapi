@@ -12,6 +12,8 @@ environment=test
 url=https://api.enterprise.apigee.com
 verbosity=2
 validate="&validate=true"
+deploy=1
+TAB=$'\t'
 
 # import .pushapi
 # This is just a file with credentials=user:password in it, and other default settings.
@@ -45,6 +47,7 @@ function usage() {
   echo "  -r rev    the revision number to use."
   echo "  -u url    the base server url to use."
   echo "  -c creds  authn credentials for the API calls."
+  echo "  -x        undeploy & delete all revs of the API; do not deploy a new rev."
   echo "  -q        quiet; decrease verbosity by 1"
   echo "  -v        verbose; increase verbosity by 1"
   echo
@@ -76,9 +79,163 @@ function timer() {
   fi
 }
 
+
+## =======================================================
+## json parsing
+json_throw () {
+  echo "$*" >&2
+  exit 1
+}
+
+BRIEF=0
+LEAFONLY=1
+PRUNE=0
+
+json_awk_egrep () {
+  local pattern_string=$1
+
+  gawk '{
+    while ($0) {
+      start=match($0, pattern);
+      token=substr($0, start, RLENGTH);
+      print token;
+      $0=substr($0, start+RLENGTH);
+    }
+  }' pattern=$pattern_string
+}
+
+json_tokenize () {
+  local GREP
+  local ESCAPE
+  local CHAR
+
+  if echo "test string" | egrep -ao --color=never "test" &>/dev/null
+  then
+    GREP='egrep -ao --color=never'
+  else
+    GREP='egrep -ao'
+  fi
+
+  if echo "test string" | egrep -o "test" &>/dev/null
+  then
+    ESCAPE='(\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})'
+    CHAR='[^[:cntrl:]"\\]'
+  else
+    GREP=json_awk_egrep
+    ESCAPE='(\\\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})'
+    CHAR='[^[:cntrl:]"\\\\]'
+  fi
+
+  local STRING="\"$CHAR*($ESCAPE$CHAR*)*\""
+  local NUMBER='-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?'
+  local KEYWORD='null|false|true'
+  local SPACE='[[:space:]]+'
+
+  $GREP "$STRING|$NUMBER|$KEYWORD|$SPACE|." | egrep -v "^$SPACE$"
+}
+
+json_parse_array () {
+  local index=0
+  local ary=''
+  read -r token
+  case "$token" in
+    ']') ;;
+    *)
+      while :
+      do
+        json_parse_value "$1" "$index"
+        index=$((index+1))
+        ary="$ary""$value"
+        read -r token
+        case "$token" in
+          ']') break ;;
+          ',') ary="$ary," ;;
+          *) json_throw "EXPECTED , or ] GOT ${token:-EOF}" ;;
+        esac
+        read -r token
+      done
+      ;;
+  esac
+  [ "$BRIEF" -eq 0 ] && value=`printf '[%s]' "$ary"` || value=
+  :
+}
+
+json_parse_object () {
+  local key
+  local obj=''
+  read -r token
+  case "$token" in
+    '}') ;;
+    *)
+      while :
+      do
+        case "$token" in
+          '"'*'"') key=$token ;;
+          *) json_throw "EXPECTED string GOT ${token:-EOF}" ;;
+        esac
+        read -r token
+        case "$token" in
+          ':') ;;
+          *) json_throw "EXPECTED : GOT ${token:-EOF}" ;;
+        esac
+        read -r token
+        json_parse_value "$1" "$key"
+        obj="$obj$key:$value"
+        read -r token
+        case "$token" in
+          '}') break ;;
+          ',') obj="$obj," ;;
+          *) json_throw "EXPECTED , or } GOT ${token:-EOF}" ;;
+        esac
+        read -r token
+      done
+    ;;
+  esac
+  [ "$BRIEF" -eq 0 ] && value=`printf '{%s}' "$obj"` || value=
+  :
+}
+
+json_parse_value () {
+  local jpath="${1:+$1,}$2" isleaf=0 isempty=0 print=0
+  case "$token" in
+    '{') json_parse_object "$jpath" ;;
+    '[') json_parse_array  "$jpath" ;;
+    # At this point, the only valid single-character tokens are digits.
+    ''|[!0-9]) json_throw "EXPECTED value GOT ${token:-EOF}" ;;
+    *) value=$token
+       isleaf=1
+       [ "$value" = '""' ] && isempty=1
+       ;;
+  esac
+  [ "$value" = '' ] && return
+  [ "$LEAFONLY" -eq 0 ] && [ "$PRUNE" -eq 0 ] && print=1
+  [ "$LEAFONLY" -eq 1 ] && [ "$isleaf" -eq 1 ] && [ $PRUNE -eq 0 ] && print=1
+  [ "$LEAFONLY" -eq 0 ] && [ "$PRUNE" -eq 1 ] && [ "$isempty" -eq 0 ] && print=1
+  [ "$LEAFONLY" -eq 1 ] && [ "$isleaf" -eq 1 ] && \
+    [ $PRUNE -eq 1 ] && [ $isempty -eq 0 ] && print=1
+  [ "$print" -eq 1 ] && printf "[%s]\t%s\n" "$jpath" "$value"
+  :
+}
+
+json_parse () {
+  read -r token
+  json_parse_value
+  read -r token
+  case "$token" in
+    '') ;;
+    *) json_throw "EXPECTED EOF GOT $token" ;;
+  esac
+}
+
+#usage:
+# cat  example.json | json_tokenize | json_parse
+
+## =======================================================
+
+
 starttime=$(timer)
 
-while getopts "vqhe:o:c:r:u:" opt; do
+while getopts "vqhe:o:c:r:u:x" opt; do
   case $opt in
     h) usage ;;
     q) verbosity=$(($verbosity-1)) ;;
@@ -88,6 +245,7 @@ while getopts "vqhe:o:c:r:u:" opt; do
     c) credentials=$OPTARG ;;
     r) rev=$OPTARG ;;
     u) url=$OPTARG ;;
+    x) deploy=0 ;;
     *) usage ;;
   esac
 done
@@ -107,14 +265,15 @@ if [ -z "$application" ]; then
   exit 1
 fi
 
-if [ ! -d "$1" ]; then
-    echoerror "The directory does not exist."
-    echoerror "The application name you specify must refer to a directory."
-    echoerror
-    usage
-    exit 1
+if [ $deploy -gt 0 ]; then
+  if [ ! -d "$1" ]; then
+      echoerror "The directory does not exist."
+      echoerror "The application name you specify must refer to a directory."
+      echoerror
+      usage
+      exit 1
+  fi
 fi
-
 
 if ! [[ "$rev" =~ ^[0-9]+$ ]] ; then
     echoerror "Bad revision: $rev"
@@ -170,61 +329,184 @@ function MYCURL_Q() {
   fi
 }
 
+function UndeployAndDelete() {
+  local rev1
+  rev1=$1
+
+  MYCURL_Q -u ${credentials} -X GET "${url}/v1/o/$org/apis/$application/revisions/${rev1}/deployments"
+  if [ ${CURL_RC} -eq 200 ]; then
+    if [ $verbosity -gt 1 ]; then
+      cat ${CURL_OUT}
+      echo
+    fi
+
+    ## extract the environment names in the list of deployments.
+    ## Before updating, must undeploy the apiproxy from all environments where it is deployed.
+    output_parsed=`cat ${CURL_OUT} | json_tokenize | json_parse`
+
+    echo "${output_parsed}" | grep \"environment\" | grep --silent \"name\"
+    if [ $? -eq 0 ]; then
+      # must undeploy from all environments before updating the revision.
+      deployed_envs=`echo "${output_parsed}" | grep \"environment\" | grep \"name\" | sed -E 's/\"//g'| sed -E 's/.+environment,[0-9]+,name.'"${TAB}"'//g'`
+      #echo "${deployed_envs}" | grep --silent $environment
+
+      declare -a env_array=(${deployed_envs})
+
+      for env in ${env_array[@]}
+      do
+        if [ $verbosity -gt 0 ]; then
+          echo Undeploying from [${env}]...
+        fi
+        MYCURL_Q -u ${credentials} -X POST "${url}/v1/o/$org/apis/$application/revisions/${rev1}/deployments?action=undeploy&env=${env}"
+        if [ $verbosity -gt 1 ]; then
+          cat ${CURL_OUT}
+          echo
+        fi
+        ## TODO: check return status, exit on fail.
+      done
+    else
+      if [ $verbosity -gt 0 ]; then
+        echo No un-deployment necessary.
+        echo That revision of the proxy does not appear to be currently deployed.
+      fi
+    fi
+
+    if [ $verbosity -gt 0 ]; then
+      echo "Deleting the existing revision..."
+    fi
+    MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$application/revisions/${rev1}"
+    if [ $verbosity -gt 1 ]; then
+      cat ${CURL_OUT}
+      echo
+    fi
+    if [  ${CURL_RC} -ne 200 ]; then
+      echo The delete failed.
+      exit
+    fi
+
+  elif [ ${CURL_RC} -ne 404 ]; then
+    cat ${CURL_OUT}
+    echo
+    if [  ${CURL_RC} -eq 403 -o ${CURL_RC} -eq 401 ]; then
+      echo You do not have permissions to do that.
+    else
+      echo An unknown error occurred.
+    fi
+    echo
+    exit 1
+  else
+    echo No un-deployment necessary: That revision does not exist.
+  fi
+}
+
+
+
+if [ $verbosity -gt 1 ]; then
+  echo verbosity = $verbosity
+fi
+
 if [ $verbosity -gt 0 ]; then
   echo
   echo "Getting deployments..."
 fi
-# un-deploy and delete the existing revision $rev
-MYCURL_Q -u ${credentials} -X GET   "${url}/v1/o/$org/apis/$application/revisions/$rev/deployments"
-if [[ ! ${CURL_RC} =~ 404 ]]; then
-  if [ $verbosity -gt 0 ]; then
-    echo "Undeploying..."
+
+if [ $deploy -eq 0 ]; then
+  MYCURL_Q -u ${credentials} -X GET "${url}/v1/o/$org/apis/$application"
+  if [ $verbosity -gt 1 ]; then
+    cat ${CURL_OUT}
+    echo
   fi
-  MYCURL_Q -u ${credentials} -X POST "${url}/v1/o/$org/apis/$application/revisions/$rev/deployments?action=undeploy&env=$environment"
-  ## TODO: check return status, exit on fail.
+  if [ ${CURL_RC} -eq 200 ]; then
+    output_parsed=`cat ${CURL_OUT} | json_tokenize | json_parse`
 
-  if [ $verbosity -gt 0 ]; then
-    echo "Deleting the existing revision..."
+    ##echo "${output_parsed}"
+    if [ $verbosity -gt 0 ]; then
+      echo "${output_parsed}" | grep --silent \"revision\"
+      if [ $? -eq 0 ]; then
+        # There are existing deployed revisions
+        echo "Removing all revisions of that API Proxy..."
+
+        deployed_revs=`echo "${output_parsed}" | grep \"revision\" | sed -E 's/\"//g' | sed -E 's/.+revision,[0-9]+.'"${TAB}"'//g'`
+        #echo "${deployed_revs}"
+        declare -a rev_array=(${deployed_revs})
+
+        for r1 in ${rev_array[@]}
+        do
+          UndeployAndDelete ${r1}
+        done
+
+      else
+        echo "Deleting the API Proxy..."
+      fi
+    fi
+    MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$application"
+    if [ $verbosity -gt 1 ]; then
+      cat ${CURL_OUT}
+      echo
+    fi
+    if [ ${CURL_RC} -eq 200 ]; then
+      if [ $verbosity -gt 0 ]; then
+        echo "deleted."
+      fi
+    else
+      if [ $verbosity -lt 0 ]; then
+        cat ${CURL_OUT}
+        echo
+      fi
+      echo "The DELETE failed."
+    fi
+
+  else
+    echo "That API Proxy does not exist."
   fi
-  MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$application/revisions/$rev"
-  ## TODO: check return status, exit on fail.
-fi
 
-if [ $verbosity -gt 0 ]; then
-  echo "Creating the zip..."
-fi
-# create the bundle zip
-if [ -f $application.zip ]; then
-  rm -rf $application.zip
-fi
-
-curdir=`pwd`
-cd $appdir
-
-ZIP_OUT=`zip -r $curdir/$application.zip apiproxy -x "*/*.*~"`
-cd $curdir
-
-if [ $verbosity -gt 1 ]; then
-  #echo $ZIP_OUT
-  unzip -l $application.zip
-  echo
-fi
-
-# import
-if [ $verbosity -gt 0 ]; then
-  echo "Importing the bundle..."
-fi
-MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis?action=import&name=$application${validate}" -T $application.zip -H "Content-Type: application/octet-stream"
-if [ $verbosity -gt 1 ]; then
-  cat ${CURL_OUT}
-  echo
-  echo
-fi
-
-if [[ ! ${CURL_RC} =~ 201 ]]; then
-  echo
-  echoerror "there was an error importing that API bundle..."
 else
+
+  # as necessary, un-deploy and delete the existing specific revision $rev
+  UndeployAndDelete $rev
+
+  if [ $verbosity -gt 0 ]; then
+    echo "Creating the zip..."
+  fi
+  # create the bundle zip
+  if [ -f $application.zip ]; then
+    rm -rf $application.zip
+  fi
+
+  curdir=`pwd`
+  cd $appdir
+
+  ZIP_OUT=`zip -r $curdir/$application.zip apiproxy -x "*/*.*~"`
+  cd $curdir
+
+  if [ $verbosity -gt 1 ]; then
+    #echo $ZIP_OUT
+    unzip -l $application.zip
+    echo
+  fi
+
+  # import
+  if [ $verbosity -gt 0 ]; then
+    echo "Importing the bundle..."
+  fi
+  MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis?action=import&name=$application${validate}" -T $application.zip -H "Content-Type: application/octet-stream"
+  if [ $verbosity -gt 1 ]; then
+    cat ${CURL_OUT}
+    echo
+    echo
+  fi
+
+  if [ ${CURL_RC} -ne 201 ]; then
+    echo
+    if [ $verbosity -le 1 ]; then
+      cat ${CURL_OUT}
+      echo
+    fi
+    echoerror "There was an error importing that API bundle..."
+    echo
+    exit 1
+  fi
+
   # deploy
   if [ $verbosity -gt 0 ]; then
     echo "Deploying the API revision..."
@@ -236,14 +518,14 @@ else
     cat ${CURL_OUT} 1>&2;
     echo
   fi
-fi
 
-
-if [ -f $application.zip ]; then
-  if [ $verbosity -gt 0 ]; then
-    echo "Deleting $application.zip..."
+  if [ -f $application.zip ]; then
+    if [ $verbosity -gt 0 ]; then
+      echo "Deleting $application.zip..."
+    fi
+    rm -rf $application.zip
   fi
-  rm -rf $application.zip
+
 fi
 
 if [ $verbosity -gt 1 ]; then
