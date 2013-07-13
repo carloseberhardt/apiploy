@@ -55,6 +55,15 @@ complementary -v option to increase verbosity. The -v option
 works only if you have set verbosity lower than 2, with the
 default settings file. More about that file later.
 
+Finally there is a -x option that allows you to undeploy and
+delete an API proxy from an org and environment.
+
+Example: To undeploy and remove an API proxy called abc from the test environment in the demo11 org:
+
+    ./pushapi  -o demo11 -e test -x abc
+
+
+
 
 How it Works
 ------------
