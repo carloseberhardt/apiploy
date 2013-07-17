@@ -286,9 +286,10 @@ fi
 
 ## function MYCURL_Q
 ## Print the curl command, omitting sensitive parameters, then run it.
-## side effects:
-## 1. puts curl output into file named ${CURL_OUT}. Caller must set the
-##    env var prior to calling this function.
+## There are side effects:
+## 1. puts curl output into file named ${CURL_OUT}. If the CURL_OUT
+##    env var is not set prior to calling this function, it is created
+##    and the name of a tmp file in /tmp is placed there.
 ## 2. puts curl http_status into variable CURL_RC
 function MYCURL_Q() {
   local outargs
@@ -298,8 +299,7 @@ function MYCURL_Q() {
   local re
   re="^(-[du]|--user)$" # the curl options to not echo
   # grab the curl args, but skip the basic auth and the payload, if any.
-  while [ "$1" ]
-  do
+  while [ "$1" ]; do
       allargs[$ix2]=$1
       let "ix2+=1"
       if [[ $1 =~ $re ]]; then
@@ -313,7 +313,7 @@ function MYCURL_Q() {
       shift
   done
 
-  [ -z "${CURL_OUT}" ] && CURL_OUT=`mktemp /tmp/apigee-add-env.curl.out.XXXXXX`
+  [ -z "${CURL_OUT}" ] && CURL_OUT=`mktemp /tmp/apigee-pushapi.curl.out.XXXXXX`
 
   if [ $verbosity -gt 1 ]; then
     # emit the curl command, without the auth + payload
@@ -328,6 +328,7 @@ function MYCURL_Q() {
     echo
   fi
 }
+
 
 function UndeployAndDelete() {
   local rev1
@@ -352,8 +353,7 @@ function UndeployAndDelete() {
 
       declare -a env_array=(${deployed_envs})
 
-      for env in ${env_array[@]}
-      do
+      for env in ${env_array[@]}; do
         if [ $verbosity -gt 0 ]; then
           echo Undeploying from [${env}]...
         fi
@@ -430,8 +430,7 @@ if [ $deploy -eq 0 ]; then
         #echo "${deployed_revs}"
         declare -a rev_array=(${deployed_revs})
 
-        for r1 in ${rev_array[@]}
-        do
+        for r1 in ${rev_array[@]}; do
           UndeployAndDelete ${r1}
         done
 
@@ -525,9 +524,12 @@ else
     fi
     rm -rf $application.zip
   fi
-
 fi
 
+
+if [ -f ${CURL_OUT} ]; then
+  rm -rf ${CURL_OUT}
+fi
 if [ $verbosity -gt 1 ]; then
   echo
   echo "done"
