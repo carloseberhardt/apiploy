@@ -455,8 +455,11 @@ if [ $deploy -eq 0 ]; then
       echo "The DELETE failed."
     fi
 
+  elif [ ${CURL_RC} -eq 401 ]; then
+    echo "Not authorized to do that."
   else
-    echo "That API Proxy does not exist."
+    echo "status =" ${CURL_RC}
+    echo "Failed querying that API Proxy."
   fi
 
 else
