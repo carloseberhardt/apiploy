@@ -262,7 +262,7 @@ if [ $# -gt 0 ]; then
   application=`basename $1`
 fi
 
-if [ -z "$application" ]; then
+if [ "X$application" = "X" ]; then
   echoerror "You must specify an application."
   echoerror
   usage
@@ -460,7 +460,7 @@ function UndeployAndDelete() {
       cat ${CURL_OUT}
       echo
     fi
-    if [  ${CURL_RC} -ne 200 ]; then
+    if [ ${CURL_RC} -ne 200 ]; then
       echo The delete failed.
       exit
     fi
