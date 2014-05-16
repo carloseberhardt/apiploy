@@ -395,10 +395,23 @@ function ProduceAndMaybeShowZip() {
     echo "Creating the zip..."
   fi
   if [ -f $application.zip ]; then
+    if [ $verbosity -gt 0 ]; then
+      echo "removing the zip..."
+    fi
     rm -rf $application.zip
   fi
 
   curdir=`pwd`
+
+  # check for package.json
+  if [[ -f "$appdir/apiproxy/resources/node/package.json" ]]; then 
+      [ $verbosity -gt 0 ] && echo "zipping node_modules..."
+      [ -f node_modules.zip ] && rm -rf node_modules.zip
+      cd "$appdir/apiproxy/resources/node" 
+      npmout=`npm install 2>&1`
+      zipout=`zip node_modules.zip -r node_modules/ 2>&1`
+  fi
+
   cd $appdir
 
   zipout=`zip -r $curdir/$application.zip apiproxy -x "*/*.*~" -x "*/#*.*#" -x "*/node_modules/*"`
