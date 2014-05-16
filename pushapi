@@ -401,7 +401,7 @@ function ProduceAndMaybeShowZip() {
   curdir=`pwd`
   cd $appdir
 
-  zipout=`zip -r $curdir/$application.zip apiproxy -x "*/*.*~" -x "*/#*.*#"`
+  zipout=`zip -r $curdir/$application.zip apiproxy -x "*/*.*~" -x "*/#*.*#" -x "*/node_modules/*"`
   cd $curdir
 
   if [ $verbosity -gt 1 ]; then
