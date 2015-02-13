@@ -11,7 +11,6 @@
 environment=test
 url=https://api.enterprise.apigee.com
 verbosity=2
-includenpm=0
 validate="&validate=true"
 deploy=1
 undeployonly=0
@@ -52,7 +51,6 @@ function usage() {
   echo "  -c creds  authn credentials for the API calls."
   echo "  -x        undeploy & delete all revs of the API; do not deploy a new rev."
   echo "  -z        just zip the bundle; do not deploy a new rev."
-  echo "  -N        include all the npm modules in the package.json."
   echo "  -q        quiet; decrease verbosity by 1"
   echo "  -v        verbose; increase verbosity by 1"
   echo
@@ -246,7 +244,6 @@ while getopts "vqhe:o:c:r:u:xzN" opt; do
     q) verbosity=$(($verbosity-1)) ;;
     v) verbosity=$(($verbosity+1)) ;;
     e) environment=$OPTARG ;;
-    N) includenpm=1 ;;
     o) org=$OPTARG ;;
     c) credentials=$OPTARG ;;
     r) rev=$OPTARG ;;
@@ -410,12 +407,10 @@ function ProduceAndMaybeShowZip() {
   if [[ -f "$appdir/apiproxy/resources/node/package.json" ]]; then 
       [ $verbosity -gt 0 ] && echo "zipping node_modules..."
       cd "$appdir/apiproxy/resources/node" 
-      [ -f node_modules.zip ] && rm -rf node_modules.zip
-      if [ $includenpm -gt 0 ]; then
+      if [[ -f package.json ]]; then
+        [ -f node_modules.zip ] && rm -rf node_modules.zip
         npmout=`npm install 2>&1`
         [ -f npm-debug.log ] && rm npm-debug.log
-      fi
-      if [ $includenpm -gt 0 ]; then
         zipout=`zip node_modules.zip -r node_modules/ 2>&1`
       fi
       [ -d node_modules ] && rm -rf node_modules
