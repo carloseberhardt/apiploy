@@ -38,18 +38,18 @@ The default action is to zip up the directory and import the resulting .zip file
 Options
 ------- 
 
-  -h        display this message.
-  -o org    the org to use.
-  -e env    the environment to deploy to.
-  -d        deploy the revision. (default: no deploy). Requires environment (-e)
-  -n name   override the name of the apiproxy. (default: use the directory name)
-  -S url    the base server url to use.
-  -u creds  authn credentials for the API calls to the Edge management server.
-  -x        undeploy any revs of the API in the environment; do not deploy a new rev.
-  -X        undeploy & DELETE all revs of the API; do not deploy a new revision.
-  -z        just zip the bundle; do not deploy a new revision.
-  -q        quiet; decrease verbosity by 1
-  -v        verbose; increase verbosity by 1
+     -h        display this message.
+     -o org    the org to use.
+     -e env    the environment to deploy to.
+     -d        deploy the revision. (default: no deploy). Requires environment (-e)
+     -n name   override the name of the apiproxy. (default: use the directory name)
+     -S url    the base server url to use.
+     -u creds  authn credentials for the API calls to the Edge management server.
+     -x        undeploy any revs of the API in the environment; do not deploy a new rev.
+     -X        undeploy & DELETE all revs of the API; do not deploy a new revision.
+     -z        just zip the bundle; do not deploy a new revision.
+     -q        quiet; decrease verbosity by 1
+     -v        verbose; increase verbosity by 1
 
    
 Examples 
@@ -60,10 +60,10 @@ Examples
     ./pushapi  -o demo11 xyz-xform
 
 
-In this case there should be a directory called xyz-xform in the
-current directory, and it should contain exactly one
-subdirectory, called apiproxy, and in there should be all the
-relevant apigee Gateway proxy definition files.
+  In this case there should be a directory called xyz-xform in the
+  current directory, and it should contain exactly one
+  subdirectory, called apiproxy, and in there should be all the
+  relevant apigee Gateway proxy definition files.
 
 2. import an API called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test':
 
