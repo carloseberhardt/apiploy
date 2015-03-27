@@ -4,11 +4,13 @@ pushapi
 A bash script to import an API proxy bundle to Apigee Edge, and 
 optionally deploy the imported revision to a particular environment. 
 
+This allows you to edit proxy files offline, and then import and deploy
+proxies remotely. 
 
 Installation
 -----------
 
-To install, copy the script to its own directory. Make sure to chmod the script so that it has execute permissions. (chmod 755 pushapi) 
+To install, copy the script to a directory. Make sure to chmod the script so that it has execute permissions. (chmod 755 pushapi) 
 
 
 Usage
@@ -63,7 +65,7 @@ Examples
   In this case there should be a directory called xyz-xform in the
   current directory, and it should contain exactly one
   subdirectory, called apiproxy, and in there should be all the
-  relevant apigee Gateway proxy definition files.
+  relevant Apigee Edge proxy definition files.
 
 2. import an API called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test':
 
@@ -75,7 +77,7 @@ Examples
     ./pushapi -v -o demo11 -e test -d xyz-xform
 
   There is also a -q option for "quiet" operation.  By default, if you
-  use two -q's then you get "silent" operation. IF you use additional -v's
+  use two -q's then you get "silent" operation. If you use additional -v's
   then you get more verbosity. 
 
 4. just create the apiproxy zip bundle, don't import or deploy: 
