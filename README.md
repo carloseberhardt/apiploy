@@ -74,8 +74,9 @@ Examples
 
     ./pushapi -v -o demo11 -e test -d xyz-xform
 
-There is also a -q option for "quiet" operation.  By default, if you
-use two -q's then you get "silent" operation. 
+  There is also a -q option for "quiet" operation.  By default, if you
+  use two -q's then you get "silent" operation. IF you use additional -v's
+  then you get more verbosity. 
 
 4. just create the apiproxy zip bundle, don't import or deploy: 
 
@@ -100,8 +101,8 @@ How it Works
 
 The sript uses the administrative APIs exposed by Apigee Edge to perform vrious actions, including:
 
- - Checking for an existing revisions of an API proxy
- - Checking for an deployment status of revisions of an API proxy
+ - checking for existing revisions of an API proxy
+ - checking for the deployment status of revisions of an API proxy
  - undeploying revisions
  - deleting revisions (Warning! loss of data possible!)
  - importing bundles to Edge as a new revision of an apiproxy
@@ -125,7 +126,7 @@ Example contents:
 
     org=demo11
     environment=test
-    credentials=scott:tiger
+    credentials=marjorie:secr3t
     verbosity=1
 
 You can set quiet operation in the default settings file with:
