@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo 
 #
 #
-# Last Saved: <2015-March-26 22:24:14>
+# Last Saved: <2015-March-30 13:17:45>
 #
 # ----------------------------------------------------------------
 # 
@@ -399,14 +399,9 @@ function ProduceAndMaybeShowZip() {
 }
 
 
-function MaybeUndeployAndMaybeDelete() {
-  local rev1
-  local env1
-  rev1=$1
-  env1=$2
-
+function GetDeploymentStatus() {
   # inquire deployment status
-  MYCURL_Q -u ${credentials} -X GET "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}/deployments"
+  MYCURL_Q -u ${credentials} -X GET "${url}/v1/o/$org/apis/$proxyname/deployments"
   if [ ${CURL_RC} -eq 200 ]; then
     if [ $verbosity -gt 1 ]; then
       cat ${CURL_OUT}
@@ -414,59 +409,32 @@ function MaybeUndeployAndMaybeDelete() {
     fi
 
     ## extract the environment names in the list of deployments.
-    ## Before updating, must undeploy the apiproxy from all environments where it is deployed.
     output_parsed=`cat ${CURL_OUT} | json_tokenize | json_parse`
+ 
+    echo "${output_parsed}" | grep \"environment\" | grep -v \"revision\" | grep --silent \"name\"
 
-    echo "${output_parsed}" | grep \"environment\" | grep --silent \"name\"
     if [ $? -eq 0 ]; then
-      # must undeploy from all environments before updating the revision.
-      deployed_envs=`echo "${output_parsed}" | grep \"environment\" | grep \"name\" | sed -E 's/\"//g'| sed -E 's/.+environment,[0-9]+,name.'"${TAB}"'//g'`
-      #echo "${deployed_envs}" | grep --silent $environment
 
+      deployed_envs=`echo "${output_parsed}" | grep \"environment\" | grep -v \"revision\" | grep \"name\" | sed -E 's/\"//g'| sed -E 's/.+environment,[0-9]+,name.'"${TAB}"'//g'`
+      deployed_revs=`echo "${output_parsed}" | grep \"environment\" | grep \"revision\" | grep \"name\" | sed -E 's/\"//g'| sed -E 's/.+environment,[0-9]+,revision,[0-9]+,name.'"${TAB}"'//g'`
+
+      declare -a rev_array=(${deployed_revs})
       declare -a env_array=(${deployed_envs})
 
-      for env in ${env_array[@]}; do
-        # if [ $verbosity -gt 1 ]; then
-        #   echo considering env $env
-        # fi
-        if [  -z "$env1" -o "X$env1" = "X$env" ]; then
-          if [ $verbosity -gt 0 ]; then
-            echo revision $rev1: Undeploying from [${env}]...
-          fi
-          MYCURL_Q -u ${credentials} -X POST "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}/deployments?action=undeploy&env=${env}"
-          if [ $verbosity -gt 1 ]; then
-            cat ${CURL_OUT}
-            echo
-          fi
-          ## TODO: check return status, exit on fail.
-        else
-          if [ $verbosity -gt 0 ]; then
-            echo revision $rev1: Not deployed to env $env1. No un-deployment necessary...
-          fi
-        fi
-      done
-
-    else
-      if [ $verbosity -gt 0 ]; then
-        echo "revision $rev1: Not deployed; No un-deployment necessary."
-      fi
-    fi
-
-    if [ $removeall -gt 0 ]; then
-      if [ $verbosity -gt 0 ]; then
-        echo revision ${rev1}: Deleting the revision ...
-      fi
-      MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
+      m=${#rev_array[@]} 
       if [ $verbosity -gt 1 ]; then
-        cat ${CURL_OUT}
-        echo
+        echo found ${m} deployed revisions
       fi
-      if [ ${CURL_RC} -ne 200 ]; then
-        echo The delete failed.
-        exit
-      fi
-    fi
 
+      deployments=() 
+      let m-=1
+      while [ $m -ge 0 ]; do
+        echo "${env_array[$m]}=${rev_array[$m]}"
+        deployments+=("${env_array[$m]}=${rev_array[$m]}")
+        let m-=1
+      done
+      have_deployments=1
+    fi
   elif [ ${CURL_RC} -ne 404 ]; then
     cat ${CURL_OUT}
     echo
@@ -478,8 +446,127 @@ function MaybeUndeployAndMaybeDelete() {
     echo
     exit 1
   else
-    echo No un-deployment necessary: That revision does not exist.
+    deployments=() 
+    have_deployments=1
     echo
+  fi
+
+  GetDeploymentRevisions
+  GetDeploymentEnvironments
+}
+
+
+function GetDeploymentEnvironments() {
+  local d
+  local env
+  # inquire deployment status
+  if [ ${have_deployments} -eq 0 ]; then 
+    GetDeploymentStatus
+  fi 
+
+  deployed_envs=()
+  for d in "${!deployments[@]}"; do
+    env=`expr "${deployments[d]}" : '\([^=]*\)'`
+    deployed_envs+=($env)
+  done
+}
+
+
+function GetDeploymentRevisions() {
+  local deployment
+  local rev
+  # inquire deployment status
+  if [ ${have_deployments} -eq 0 ]; then 
+    GetDeploymentStatus
+  fi 
+
+  deployed_revs=()
+  for deployment in ${deployments[@]}; do
+    rev=`expr "$deployment" : '[^=]*=\([^=]*\)'`
+    deployed_revs+=($rev)
+  done
+}
+
+function InquireDeployment() {
+  local rev1
+  local env1
+  local is_deployed
+  rev1=$1
+  env1=$2
+  is_deployed=0
+  for deployment in ${deployments[@]}; do
+    env=`expr "$deployment" : '\([^=]*\)'`
+    if [ "X$env" = "X$env1" ]; then
+      rev=`expr "$deployment" : '[^=]*=\([^=]*\)'`
+      if [ "X$rev" = "X$rev1" ]; then
+        is_deployed=1
+      fi
+    fi
+  done
+  echo $is_deployed
+}
+
+
+function MaybeUndeployAndMaybeDelete() {
+  local rev1
+  local env1
+  local want_undeploy
+  rev1=$1
+  env1=$2
+  want_undeploy=0
+
+  if [ ${have_deployments} -eq 0 ]; then 
+    GetDeploymentStatus
+  fi 
+
+  if [ ${#deployed_envs[@]} -gt 0 ]; then
+    for env in ${deployed_envs[@]}; do
+      # if [ $verbosity -gt 1 ]; then
+      #   echo considering env $env
+      # fi
+      if [ -z "$env1" ]; then
+        want_undeploy=1
+      elif [ "X$env1" = "X$env" ]; then
+        want_undeploy=`InquireDeployment $rev1 $env1`
+        if [ $want_undeploy -eq 0 ]; then
+          if [ $verbosity -gt 0 ]; then
+            echo revision $rev1: Not deployed to env $env1. No un-deployment necessary...
+          fi
+        fi
+      fi
+
+      if [ $want_undeploy -gt 0 ]; then
+        if [ $verbosity -gt 0 ]; then
+          echo revision $rev1: Undeploying from [${env}]...
+        fi
+        MYCURL_Q -u ${credentials} -X POST "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}/deployments?action=undeploy&env=${env}"
+        if [ $verbosity -gt 1 ]; then
+          cat ${CURL_OUT}
+          echo
+        fi
+        ## TODO: check return status, exit on fail.
+      fi
+    done
+
+  else
+    if [ $verbosity -gt 0 ]; then
+      echo "revision $rev1: Not deployed; No un-deployment necessary."
+    fi
+  fi
+
+  if [ $removeall -gt 0 ]; then
+    if [ $verbosity -gt 0 ]; then
+      echo revision ${rev1}: Deleting the revision ...
+    fi
+    MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
+    if [ $verbosity -gt 1 ]; then
+      cat ${CURL_OUT}
+      echo
+    fi
+    if [ ${CURL_RC} -ne 200 ]; then
+      echo The delete failed.
+      exit
+    fi
   fi
 }
 
@@ -491,6 +578,7 @@ function MaybeUndeployAndMaybeDelete() {
 #
  
 starttime=$(timer)
+have_deployments=0
 
 while getopts "vqhe:o:S:u:xXzNd" opt; do
   case $opt in
