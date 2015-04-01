@@ -57,19 +57,23 @@ Options
 Examples 
 --------
 
-1. import an API called xyz-xform to the org named 'demo11'. The apiproxy will get a new revision:
+1. import an API called xyz-xform to the org named 'demo11':
 
     ./pushapi  -o demo11 xyz-xform
 
+  The apiproxy will get a new revision. The output of the script will
+  tell you the revision number. This will not deploy the proxy.
 
   In this case there should be a directory called xyz-xform in the
   current directory, and it should contain exactly one
-  subdirectory, called apiproxy, and in there should be all the
-  relevant Apigee Edge proxy definition files.
+  subdirectory, called apiproxy, and in there should be the requisite
+  Apigee Edge proxy directory tree, containing all the files in your proxy.
 
 2. import an API called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test':
 
     ./pushapi -o demo11 -e test -d xyz-xform
+
+  This will create a new revision of the API proxy.  The output of the script will tell you the revision number. 
 
 
 3. import an API called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test', with verbose output:
@@ -77,8 +81,8 @@ Examples
     ./pushapi -v -o demo11 -e test -d xyz-xform
 
   There is also a -q option for "quiet" operation.  By default, if you
-  use two -q's then you get "silent" operation. If you use additional -v's
-  then you get more verbosity. 
+  use two -q's then you get "silent" operation. If you use additional
+  -v's then you get more verbosity.
 
 4. just create the apiproxy zip bundle, don't import or deploy: 
 
