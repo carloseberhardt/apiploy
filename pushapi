@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo 
 #
 #
-# Last Saved: <2015-March-30 13:17:45>
+# Last Saved: <2015-April-24 12:14:10>
 #
 # ----------------------------------------------------------------
 # 
@@ -54,7 +54,7 @@
 #
 
 ## defaults
-version="Thursday, 26 March 2015, 14:50"
+version="Friday, 24 April 2015, 12:14"
 #environment=test
 environment=""
 url=https://api.enterprise.apigee.com
@@ -65,6 +65,7 @@ deploy=0
 undeployonly=0
 removeall=0
 ziponly=0
+revstokeep=-1
 TAB=$'\t'
 
 # import .pushapi
@@ -87,6 +88,7 @@ function echoerror() { echo "$@" 1>&2; }
 function usage() {
   local CMD=`basename $0`
   echo "$CMD: Import and optionally deploy an API proxy to Apigee Edge. "
+  echo "  Or maybe delete older revisions of an API Proxy."
   echo "  Uses the curl utility, which must be available on the path."
   echo "  $CMD version: ${version}"
   echo "usage: "
@@ -101,6 +103,7 @@ function usage() {
   echo "  -u creds  authn credentials for the API calls to the Edge management server."
   echo "  -x        undeploy any revs of the API in the environment; do not deploy a new rev."
   echo "  -X        undeploy & DELETE all revs of the API; do not deploy a new revision."
+  echo "  -C num    delete all but last num revs of the API (if not deployed)"
   echo "  -z        just zip the bundle; do not deploy a new revision."
   echo "  -q        quiet; decrease verbosity by 1"
   echo "  -v        verbose; increase verbosity by 1"
@@ -411,7 +414,7 @@ function GetDeploymentStatus() {
     ## extract the environment names in the list of deployments.
     output_parsed=`cat ${CURL_OUT} | json_tokenize | json_parse`
  
-    echo "${output_parsed}" | grep \"environment\" | grep -v \"revision\" | grep --silent \"name\"
+    #echo "${output_parsed}" | grep \"environment\" | grep -v \"revision\" | grep --silent \"name\"
 
     if [ $? -eq 0 ]; then
 
@@ -507,7 +510,50 @@ function InquireDeployment() {
 }
 
 
+
+function DeleteRevIfNotDeployed() {
+  # maybe delete revisions of an apiproxy
+  local rev1
+  local env1
+  local is_deployed
+  rev1=$1
+  env1=$2
+
+  if [ ${have_deployments} -eq 0 ]; then 
+    GetDeploymentStatus
+  fi 
+
+  if [ ${#deployed_envs[@]} -gt 0 ]; then
+    is_deployed=0
+    for env in ${deployed_envs[@]}; do
+      if [ $is_deployed -eq 0 ]; then
+        is_deployed=`InquireDeployment $rev1 $env`
+      fi
+    done
+    if [ $is_deployed -eq 0 ]; then
+      if [ $verbosity -gt 0 ]; then
+        echo revision ${rev1}: Deleting the revision ...
+      fi
+      MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
+      if [ $verbosity -gt 1 ]; then
+        cat ${CURL_OUT}
+        echo
+      fi
+      if [ ${CURL_RC} -ne 200 ]; then
+        echo The delete failed.
+        exit
+      fi
+    else
+      if [ $verbosity -gt 0 ]; then
+        echo revision ${rev1}: NOT Deleting the revision, it is currently deployed ...
+      fi
+    fi
+ fi
+
+}
+
 function MaybeUndeployAndMaybeDelete() {
+  # maybe undeploy and maybe delete revisions of an apiproxy
   local rev1
   local env1
   local want_undeploy
@@ -527,7 +573,7 @@ function MaybeUndeployAndMaybeDelete() {
       if [ -z "$env1" ]; then
         want_undeploy=1
       elif [ "X$env1" = "X$env" ]; then
-        want_undeploy=`InquireDeployment $rev1 $env1`
+        want_undeploy=`InquireDeployment $rev1 $env`
         if [ $want_undeploy -eq 0 ]; then
           if [ $verbosity -gt 0 ]; then
             echo revision $rev1: Not deployed to env $env1. No un-deployment necessary...
@@ -580,7 +626,7 @@ function MaybeUndeployAndMaybeDelete() {
 starttime=$(timer)
 have_deployments=0
 
-while getopts "vqhe:o:S:u:xXzNd" opt; do
+while getopts "vqhe:o:S:u:xXzNdC:" opt; do
   case $opt in
     h) usage ;;
     q) verbosity=$(($verbosity-1)) ;;
@@ -591,6 +637,7 @@ while getopts "vqhe:o:S:u:xXzNd" opt; do
     u) credentials=$OPTARG ;;
     d) deploy=1 ;;
     S) url=$OPTARG ;;
+    C) revstokeep=$OPTARG ;;
     x) undeployonly=1 && import=0 ;;
     X) removeall=1 && import=0 ;;
     z) ziponly=1 && import=0 ;;
@@ -634,7 +681,7 @@ if [ $ziponly -gt 0 -a $undeployonly -gt 0 ] ; then
     exit 1
 fi
 
-if [ $deploy -gt 0 -o $import -gt 0 -o $undeployonly -gt 0 -o $removeall -gt 0 ] ; then
+if [ $deploy -gt 0 -o $import -gt 0 -o $undeployonly -gt 0 -o $removeall -gt 0 -o $revstokeep -gt 0 ] ; then
   
   # if ! [[ "$rev" =~ ^[0-9]+$ ]] ; then
   #     echoerror "Bad revision: $rev"
@@ -681,9 +728,9 @@ if [ $ziponly -gt 0 ]; then
   echo "the zip is available as $apiproxy.zip"
 else 
 
-  # We need to import (and maybe deploy) or undeploy
+  # We need to maybe remove old revisions, maybe import (and maybe deploy) or possibly undeploy
 
-  if [ $undeployonly -gt 0 -o $removeall -gt 0 ]; then
+  if [ $undeployonly -gt 0 -o $removeall -gt 0 -o $revstokeep -gt 0 ]; then
     if [ $verbosity -gt 0 ]; then
       echo
       echo "Inquiring existing revisions..."
@@ -705,9 +752,23 @@ else
         #echo "${existing_revs}"
         declare -a rev_array=(${existing_revs})
         echo "${rev_array[@]}"
-        for r1 in ${rev_array[@]}; do
-          MaybeUndeployAndMaybeDelete ${r1} ${environment}
-        done
+        if [ $revstokeep -gt 0 ]; then
+          numExistingRevs=${#rev_array[*]}
+          index=$((numExistingRevs-revstokeep))
+          if [ $index -lt 1 ]; then
+            echo "Nothing to do. retaining all $numExistingRevs existing revisions."
+          else
+            echo deleting revisions ${rev_array[@]::$index} ...
+            for r1 in ${rev_array[@]::$index}; do
+              #echo deleting rev $r1
+              DeleteRevIfNotDeployed ${r1} 
+            done
+          fi
+        else
+          for r1 in ${rev_array[@]}; do
+            MaybeUndeployAndMaybeDelete ${r1} ${environment}
+          done
+        fi
       else
         echo "There are no existing revisions of that API Proxy."
       fi
