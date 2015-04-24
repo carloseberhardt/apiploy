@@ -49,6 +49,7 @@ Options
      -u creds  authn credentials for the API calls to the Edge management server.
      -x        undeploy any revs of the API in the environment; do not deploy a new rev.
      -X        undeploy & DELETE all revs of the API; do not deploy a new revision.
+     -C num    delete all but last num revs of the API (if not deployed)
      -z        just zip the bundle; do not deploy a new revision.
      -q        quiet; decrease verbosity by 1
      -v        verbose; increase verbosity by 1
@@ -94,11 +95,15 @@ Examples
 
 6. undeploy any deployed revisions of the API proxy called abc from any environment in the demo11 org, and then delete all revisions:
 
-    ./pushapi  -o demo11 -X  abc
+    ./pushapi  -o demo11 -X abc
 
 7. undeploy any deployed revisions of the API proxy called abc from the environment test in the demo11 org:
 
     ./pushapi  -o demo11 -e test -x abc
+
+8. delete all but the most recent 10 revisions of the mayo1 proxy:
+
+    ./pushapi  -o demo11 -C 10 mayo1
 
 
 
