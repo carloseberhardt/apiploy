@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo 
 #
 #
-# Last Saved: <2015-April-24 12:14:10>
+# Last Saved: <2015-April-30 11:17:36>
 #
 # ----------------------------------------------------------------
 # 
@@ -391,7 +391,12 @@ function ProduceAndMaybeShowZip() {
   cd $curdir
   cd $appdir
 
-  zipout=`zip -r $curdir/$apiproxy.zip apiproxy -x "*/*.*~" -x "*/#*.*#" -x "*/node_modules/*"`
+  otherfiles=""
+  if [[ -f "README.md" ]]; then 
+    otherfiles="README.md"
+  fi
+
+  zipout=`zip -r $curdir/$apiproxy.zip apiproxy $otherfiles -x "*/*.*~" -x "*/#*.*#" -x "*/node_modules/*"`
   cd $curdir
 
   if [ $verbosity -gt 1 ]; then
