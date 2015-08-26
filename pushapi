@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo 
 #
 #
-# Last Saved: <2015-April-30 11:17:36>
+# Last Saved: <2015-June-11 14:17:45>
 #
 # ----------------------------------------------------------------
 # 
@@ -595,7 +595,13 @@ function MaybeUndeployAndMaybeDelete() {
           cat ${CURL_OUT}
           echo
         fi
-        ## TODO: check return status, exit on fail.
+        ## check return status, exit on fail.
+        if [ ${CURL_RC} -ne 200 ]; then
+          echo The undeploy failed.
+          echo
+          CleanupAndFinish
+          exit 1
+        fi
       fi
     done
 
@@ -616,7 +622,9 @@ function MaybeUndeployAndMaybeDelete() {
     fi
     if [ ${CURL_RC} -ne 200 ]; then
       echo The delete failed.
-      exit
+      echo
+      CleanupAndFinish
+      exit 1
     fi
   fi
 }
