@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo 
 #
 #
-# Last Saved: <2015-June-11 14:17:45>
+# Last Saved: <2015-August-31 15:46:26>
 #
 # ----------------------------------------------------------------
 # 
@@ -53,13 +53,14 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+version="Monday, 31 August 2015, 15:38"
 ## defaults
-version="Friday, 24 April 2015, 12:14"
 #environment=test
 environment=""
 url=https://api.enterprise.apigee.com
 verbosity=2
 validate="&validate=true"
+netrccreds=0
 import=1
 deploy=0
 undeployonly=0
@@ -101,6 +102,7 @@ function usage() {
   echo "  -n name   override the name of the apiproxy. (default: use the directory name)"
   echo "  -S url    the base server url to use."
   echo "  -u creds  authn credentials for the API calls to the Edge management server."
+  echo "  -c        retrieve authn credentials from .netrc"
   echo "  -x        undeploy any revs of the API in the environment; do not deploy a new rev."
   echo "  -X        undeploy & DELETE all revs of the API; do not deploy a new revision."
   echo "  -C num    delete all but last num revs of the API (if not deployed)"
@@ -327,7 +329,7 @@ function MYCURL_Q() {
     echo "curl ${outargs[@]}"
   fi
   # run the curl command
-  CURL_RC=`curl -s -w "%{http_code}" -o "${CURL_OUT}" "${allargs[@]}"`
+  CURL_RC=`curl -s ${credentials} -w "%{http_code}" -o "${CURL_OUT}" "${allargs[@]}"`
   if [ $verbosity -gt 1 ]; then
     # emit the http status code
     echo "==> ${CURL_RC}"
@@ -409,7 +411,7 @@ function ProduceAndMaybeShowZip() {
 
 function GetDeploymentStatus() {
   # inquire deployment status
-  MYCURL_Q -u ${credentials} -X GET "${url}/v1/o/$org/apis/$proxyname/deployments"
+  MYCURL_Q -X GET "${url}/v1/o/$org/apis/$proxyname/deployments"
   if [ ${CURL_RC} -eq 200 ]; then
     if [ $verbosity -gt 1 ]; then
       cat ${CURL_OUT}
@@ -539,7 +541,7 @@ function DeleteRevIfNotDeployed() {
       if [ $verbosity -gt 0 ]; then
         echo revision ${rev1}: Deleting the revision ...
       fi
-      MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
+      MYCURL_Q -X DELETE "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
       if [ $verbosity -gt 1 ]; then
         cat ${CURL_OUT}
         echo
@@ -590,7 +592,7 @@ function MaybeUndeployAndMaybeDelete() {
         if [ $verbosity -gt 0 ]; then
           echo revision $rev1: Undeploying from [${env}]...
         fi
-        MYCURL_Q -u ${credentials} -X POST "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}/deployments?action=undeploy&env=${env}"
+        MYCURL_Q -X POST "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}/deployments?action=undeploy&env=${env}"
         if [ $verbosity -gt 1 ]; then
           cat ${CURL_OUT}
           echo
@@ -615,7 +617,7 @@ function MaybeUndeployAndMaybeDelete() {
     if [ $verbosity -gt 0 ]; then
       echo revision ${rev1}: Deleting the revision ...
     fi
-    MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
+    MYCURL_Q -X DELETE "${url}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
     if [ $verbosity -gt 1 ]; then
       cat ${CURL_OUT}
       echo
@@ -639,7 +641,7 @@ function MaybeUndeployAndMaybeDelete() {
 starttime=$(timer)
 have_deployments=0
 
-while getopts "vqhe:o:S:u:xXzNdC:" opt; do
+while getopts "vqhe:o:S:u:cxXzNdC:" opt; do
   case $opt in
     h) usage ;;
     q) verbosity=$(($verbosity-1)) ;;
@@ -648,6 +650,7 @@ while getopts "vqhe:o:S:u:xXzNdC:" opt; do
     o) org=$OPTARG ;;
     n) proxyname=$OPTARG ;;
     u) credentials=$OPTARG ;;
+    c) netrccreds=1 ;;
     d) deploy=1 ;;
     S) url=$OPTARG ;;
     C) revstokeep=$OPTARG ;;
@@ -676,6 +679,18 @@ fi
 if [ "X$proxyname" = "X" ]; then
   proxyname=$apiproxy
 fi
+
+if [ ${netrccreds} -eq 1 ]; then
+  echo "using credentials from .netrc"
+  credentials='-n'
+elif [ "X$credentials" = "X" ]; then
+    echoerror "You must specify credentials."
+    echoerror
+    usage
+    exit 1
+else
+  credentials="-u $credentials"
+fi 
 
 if [ $import -gt 0 -o $ziponly -gt 0 ]; then
   if [ ! -d "$1" ]; then
@@ -748,7 +763,7 @@ else
       echo
       echo "Inquiring existing revisions..."
     fi
-    MYCURL_Q -u ${credentials} -X GET "${url}/v1/o/$org/apis/$proxyname"
+    MYCURL_Q -X GET "${url}/v1/o/$org/apis/$proxyname"
     if [ $verbosity -gt 1 ]; then
       cat ${CURL_OUT}
       echo
@@ -791,7 +806,7 @@ else
           echo "Deleting the API Proxy..."
         fi
 
-        MYCURL_Q -u ${credentials} -X DELETE "${url}/v1/o/$org/apis/$proxyname"
+        MYCURL_Q -X DELETE "${url}/v1/o/$org/apis/$proxyname"
         if [ $verbosity -gt 1 ]; then
           cat ${CURL_OUT}
           echo
@@ -828,7 +843,7 @@ else
     if [ $verbosity -gt 0 ]; then
       echo "Importing the bundle as $proxyname..."
     fi
-    MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis?action=import&name=$proxyname${validate}" -T $apiproxy.zip -H "Content-Type: application/octet-stream"
+    MYCURL_Q -X POST "$url/v1/o/$org/apis?action=import&name=$proxyname${validate}" -T $apiproxy.zip -H "Content-Type: application/octet-stream"
     if [ $verbosity -gt 1 ]; then
       cat ${CURL_OUT}
       echo
@@ -861,7 +876,7 @@ else
         echo
         echo "Inquiring existing revisions..."
       fi
-      MYCURL_Q -u ${credentials} -X GET "${url}/v1/o/$org/apis/$proxyname"
+      MYCURL_Q  -X GET "${url}/v1/o/$org/apis/$proxyname"
       if [ $verbosity -gt 1 ]; then
         cat ${CURL_OUT}
         echo
@@ -890,7 +905,7 @@ else
         #echo "revision $rev of API proxy $proxyname: Deploying to [${environment}]..."
         echo "revision $rev: Deploying..."
       fi
-      MYCURL_Q -u $credentials -X POST "$url/v1/o/$org/apis/$proxyname/revisions/$rev/deployments?action=deploy&env=$environment"
+      MYCURL_Q -X POST "$url/v1/o/$org/apis/$proxyname/revisions/$rev/deployments?action=deploy&env=$environment"
       if [[ ! ${CURL_RC} =~ 200 ]]; then
         echo
         echoerror "There was an error deploying revision $rev of $proxyname."
