@@ -3,22 +3,22 @@
 #
 # pushapi
 #
-# A bash script that imports and possibly deploys API bundles to Apigee Edge. 
+# A bash script that imports and possibly deploys API bundles to Apigee Edge.
 #
-# Invoke with -h for help. 
-# usage examples: 
-# 
+# Invoke with -h for help.
+# usage examples:
+#
 # import api proxy named 'foo' to org 'org1':
 #     ./pushapi -v -o org1 foo
 #
 # import api proxy named 'foo' to org 'org1', and deploy it to env 'test':
-#     ./pushapi -v -o org1 -e test -d foo 
+#     ./pushapi -v -o org1 -e test -d foo
 #
 #
 # Last Saved: <2015-August-31 15:46:26>
 #
 # ----------------------------------------------------------------
-# 
+#
 # Copyright (c) 2015 Dino Chiesa and Apigee Corp
 # All Rights Reserved.
 #
@@ -70,8 +70,8 @@ revstokeep=-1
 TAB=$'\t'
 
 # import .pushapi
-# This is just a file with default settings in it. 
-# For example, you could include your credentials there. 
+# This is just a file with default settings in it.
+# For example, you could include your credentials there.
 #
 # NB: you should add .pushapi to the .gitignore to avoid uploading
 # apigee creds to github.
@@ -378,9 +378,9 @@ function ProduceAndMaybeShowZip() {
   curdir=`pwd`
 
   # check for package.json
-  if [[ -f "$appdir/apiproxy/resources/node/package.json" ]]; then 
+  if [[ -f "$appdir/apiproxy/resources/node/package.json" ]]; then
       [ $verbosity -gt 0 ] && echo "zipping node_modules..."
-      cd "$appdir/apiproxy/resources/node" 
+      cd "$appdir/apiproxy/resources/node"
       if [[ -f package.json ]]; then
         [ -f node_modules.zip ] && rm -rf node_modules.zip
         npmout=`npm install 2>&1`
@@ -390,16 +390,16 @@ function ProduceAndMaybeShowZip() {
       [ -d node_modules ] && rm -rf node_modules
   fi
 
-  cd $curdir
-  cd $appdir
+  cd "$curdir"
+  cd "$appdir"
 
   otherfiles=""
-  if [[ -f "README.md" ]]; then 
+  if [[ -f "README.md" ]]; then
     otherfiles="README.md"
   fi
 
-  zipout=`zip -r $curdir/$apiproxy.zip apiproxy $otherfiles -x "*/*.*~" -x "*/#*.*#" -x "*/node_modules/*"`
-  cd $curdir
+  zipout=`zip -r "$curdir/$apiproxy.zip" apiproxy $otherfiles -x "*/*.*~" -x "*/#*.*#" -x "*/node_modules/*"`
+  cd "$curdir"
 
   if [ $verbosity -gt 1 ]; then
     #echo $zipout
@@ -420,7 +420,7 @@ function GetDeploymentStatus() {
 
     ## extract the environment names in the list of deployments.
     output_parsed=`cat ${CURL_OUT} | json_tokenize | json_parse`
- 
+
     #echo "${output_parsed}" | grep \"environment\" | grep -v \"revision\" | grep --silent \"name\"
 
     if [ $? -eq 0 ]; then
@@ -431,12 +431,12 @@ function GetDeploymentStatus() {
       declare -a rev_array=(${deployed_revs})
       declare -a env_array=(${deployed_envs})
 
-      m=${#rev_array[@]} 
+      m=${#rev_array[@]}
       if [ $verbosity -gt 1 ]; then
         echo found ${m} deployed revisions
       fi
 
-      deployments=() 
+      deployments=()
       let m-=1
       while [ $m -ge 0 ]; do
         echo "${env_array[$m]}=${rev_array[$m]}"
@@ -456,7 +456,7 @@ function GetDeploymentStatus() {
     echo
     exit 1
   else
-    deployments=() 
+    deployments=()
     have_deployments=1
     echo
   fi
@@ -470,9 +470,9 @@ function GetDeploymentEnvironments() {
   local d
   local env
   # inquire deployment status
-  if [ ${have_deployments} -eq 0 ]; then 
+  if [ ${have_deployments} -eq 0 ]; then
     GetDeploymentStatus
-  fi 
+  fi
 
   deployed_envs=()
   for d in "${!deployments[@]}"; do
@@ -486,9 +486,9 @@ function GetDeploymentRevisions() {
   local deployment
   local rev
   # inquire deployment status
-  if [ ${have_deployments} -eq 0 ]; then 
+  if [ ${have_deployments} -eq 0 ]; then
     GetDeploymentStatus
-  fi 
+  fi
 
   deployed_revs=()
   for deployment in ${deployments[@]}; do
@@ -526,9 +526,9 @@ function DeleteRevIfNotDeployed() {
   rev1=$1
   env1=$2
 
-  if [ ${have_deployments} -eq 0 ]; then 
+  if [ ${have_deployments} -eq 0 ]; then
     GetDeploymentStatus
-  fi 
+  fi
 
   if [ ${#deployed_envs[@]} -gt 0 ]; then
     is_deployed=0
@@ -568,9 +568,9 @@ function MaybeUndeployAndMaybeDelete() {
   env1=$2
   want_undeploy=0
 
-  if [ ${have_deployments} -eq 0 ]; then 
+  if [ ${have_deployments} -eq 0 ]; then
     GetDeploymentStatus
-  fi 
+  fi
 
   if [ ${#deployed_envs[@]} -gt 0 ]; then
     for env in ${deployed_envs[@]}; do
@@ -637,7 +637,7 @@ function MaybeUndeployAndMaybeDelete() {
 #
 # Start of execution
 #
- 
+
 starttime=$(timer)
 have_deployments=0
 
@@ -690,7 +690,7 @@ elif [ "X$credentials" = "X" ]; then
     exit 1
 else
   credentials="-u $credentials"
-fi 
+fi
 
 if [ $import -gt 0 -o $ziponly -gt 0 ]; then
   if [ ! -d "$1" ]; then
@@ -710,7 +710,7 @@ if [ $ziponly -gt 0 -a $undeployonly -gt 0 ] ; then
 fi
 
 if [ $deploy -gt 0 -o $import -gt 0 -o $undeployonly -gt 0 -o $removeall -gt 0 -o $revstokeep -gt 0 ] ; then
-  
+
   # if ! [[ "$rev" =~ ^[0-9]+$ ]] ; then
   #     echoerror "Bad revision: $rev"
   #     echoerror "The revision must be a number."
@@ -726,7 +726,7 @@ if [ $deploy -gt 0 -o $import -gt 0 -o $undeployonly -gt 0 -o $removeall -gt 0 -
       exit 1
   fi
 
-  if [[ -z "$org" ]]; then 
+  if [[ -z "$org" ]]; then
       echoerror "missing org"
       echoerror
       usage
@@ -735,7 +735,7 @@ if [ $deploy -gt 0 -o $import -gt 0 -o $undeployonly -gt 0 -o $removeall -gt 0 -
 
   if [ $deploy -gt 0 ]; then
     # to deploy, we need to know the environment
-    if [[ -z "$environment" ]]; then 
+    if [[ -z "$environment" ]]; then
         echoerror "missing environment"
         echoerror
         usage
@@ -754,7 +754,7 @@ fi
 if [ $ziponly -gt 0 ]; then
   ProduceAndMaybeShowZip
   echo "the zip is available as $apiproxy.zip"
-else 
+else
 
   # We need to maybe remove old revisions, maybe import (and maybe deploy) or possibly undeploy
 
@@ -789,7 +789,7 @@ else
             echo deleting revisions ${rev_array[@]::$index} ...
             for r1 in ${rev_array[@]::$index}; do
               #echo deleting rev $r1
-              DeleteRevIfNotDeployed ${r1} 
+              DeleteRevIfNotDeployed ${r1}
             done
           fi
         else
@@ -863,13 +863,13 @@ else
       exit 1
     fi
 
-    ## what revision did we just import? 
+    ## what revision did we just import?
     output_parsed=`cat ${CURL_OUT} | json_tokenize | json_parse`
     rev=`echo "${output_parsed}" | grep \"revision\" | sed -E 's/\"//g'| sed -E 's/.+revision.'"${TAB}"'//g'`
 
     echo This is revision $rev
 
-    if [ $deploy -gt 0 ]; then 
+    if [ $deploy -gt 0 ]; then
       # if the request is to deploy, first we must un-deploy any
       # existing revision from the target environment.
       if [ $verbosity -gt 0 ]; then
@@ -895,7 +895,7 @@ else
           for r1 in ${rev_array[@]}; do
             if [ $r1 -ne $rev ]; then
               MaybeUndeployAndMaybeDelete ${r1} $environment
-            fi 
+            fi
           done
         fi
       fi
@@ -913,7 +913,7 @@ else
         echo
       fi
     fi
-    DeleteApiproxyArchive 
+    DeleteApiproxyArchive
   fi
 
 fi
