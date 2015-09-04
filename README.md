@@ -64,7 +64,26 @@ Options
      -q        quiet; decrease verbosity by 1
      -v        verbose; increase verbosity by 1
 
-   
+
+
+How it Works
+------------
+
+The sript uses the administrative APIs exposed by Apigee Edge to perform vrious actions, including:
+
+ - checking for existing revisions of an API proxy
+ - checking for the deployment status of revisions of an API proxy
+ - undeploying revisions
+ - deleting revisions (Warning! loss of data possible!)
+ - importing bundles to Edge as a new revision of an apiproxy
+ - deploying an imported api proxy
+
+The script invokes these APIs using the cURL utility; it echoes the cURL commands as it runs
+them, and checks the output status of those commands in order to handle
+failures. You need to have curl available on the path.
+
+
+
 Examples 
 --------
 
@@ -117,23 +136,6 @@ Examples
 
 
 
-How it Works
-------------
-
-The sript uses the administrative APIs exposed by Apigee Edge to perform vrious actions, including:
-
- - checking for existing revisions of an API proxy
- - checking for the deployment status of revisions of an API proxy
- - undeploying revisions
- - deleting revisions (Warning! loss of data possible!)
- - importing bundles to Edge as a new revision of an apiproxy
- - deploying an imported api proxy
-
-The script invokes these APIs using the cURL utility; it echoes the cURL commands as it runs
-them, and checks the output status of those commands in order to handle
-failures. You need to have curl available on the path.
-
-
 Default Settings
 ----------------
 
@@ -163,6 +165,34 @@ avoid uploading secrets to the git repo.
 
 Also, you can eliminate the credentials from the .pushapi file by using
 the -c option and placing the credentials in the .netrc file.
+
+
+Using this with OPDK 
+------------------------
+
+This works against Apigee Edge public cloud or Apigee Edge OPDK.  The way you specify the management server target is with the -S option.  It defaults to https://api.enterprise.apigee.com today, but you can point it to a local OPDK via something like 
+
+    ./pushapi -c -S http://api.edgemgmt -o demo11 -C 10 mayo1
+
+...and in this case the urls the script will use will be like 
+
+    http://api.edgemgmt/v1/o/demo11/...
+
+
+Credentials
+------------------------
+
+You need to pass your administrative credentials to the script in some way. Use one of these three ways: 
+
+  - the -u option, specifying the creds on the command line
+  - the -c option, telling the script to look in .netrc.  Curl actually can 
+    look in the .netrc file for your creds, so this is a nice option if 
+    you don't want to constantly have to specify credentials. 
+  - in the .pushapi file, as a default setting.
+
+Most of the examples above show the use of the -c option.  You could replace -c in any of those examples with -u username:password . 
+
+
 
 Known Bugs
 ----------
