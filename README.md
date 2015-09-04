@@ -51,7 +51,7 @@ Options
 
      -h        display this message.
      -o org    the org to use.
-     -e env    the environment to deploy to.
+     -e env    the environment to deploy to, or undeploy from.
      -d        deploy the revision. (default: no deploy). Requires environment (-e)
      -n name   override the name of the apiproxy. (default: use the directory name)
      -S url    the base server url to use.
