@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo
 #
 #
-# Last Saved: <2015-August-31 15:46:26>
+# Last Saved: <2015-October-06 13:23:31>
 #
 # ----------------------------------------------------------------
 #
@@ -385,7 +385,7 @@ function ProduceAndMaybeShowZip() {
         [ -f node_modules.zip ] && rm -rf node_modules.zip
         npmout=`npm install 2>&1`
         [ -f npm-debug.log ] && rm npm-debug.log
-        zipout=`zip node_modules.zip -r node_modules/ 2>&1`
+        zipout=`zip node_modules.zip -r node_modules/  -x "*/Icon*" 2>&1`
       fi
       [ -d node_modules ] && rm -rf node_modules
   fi
@@ -398,7 +398,7 @@ function ProduceAndMaybeShowZip() {
     otherfiles="README.md"
   fi
 
-  zipout=`zip -r "$curdir/$apiproxy.zip" apiproxy $otherfiles -x "*/*.*~" -x "*/#*.*#" -x "*/node_modules/*"`
+  zipout=`zip -r "$curdir/$apiproxy.zip" apiproxy $otherfiles -x "*/*.*~" -x "*/Icon*" -x "*/#*.*#" -x "*/node_modules/*"`
   cd "$curdir"
 
   if [ $verbosity -gt 1 ]; then
@@ -641,7 +641,7 @@ function MaybeUndeployAndMaybeDelete() {
 starttime=$(timer)
 have_deployments=0
 
-while getopts "vqhe:o:S:u:cxXzNdC:" opt; do
+while getopts "hqve:o:n:u:cdS:C:xXz" opt; do
   case $opt in
     h) usage ;;
     q) verbosity=$(($verbosity-1)) ;;
@@ -666,7 +666,7 @@ shift $(($OPTIND - 1))
 ## allow for an apiproxy directory that is not local
 if [ $# -gt 0 ]; then
   appdir=$1
-  apiproxy=`basename $1`
+  apiproxy=`basename "$1"`
 fi
 
 if [ "X$apiproxy" = "X" ]; then
@@ -679,6 +679,7 @@ fi
 if [ "X$proxyname" = "X" ]; then
   proxyname=$apiproxy
 fi
+
 
 if [ ${netrccreds} -eq 1 ]; then
   echo "using credentials from .netrc"
@@ -694,7 +695,7 @@ fi
 
 if [ $import -gt 0 -o $ziponly -gt 0 ]; then
   if [ ! -d "$1" ]; then
-      echoerror "The directory does not exist."
+      echoerror "The directory $1 does not exist."
       echoerror "The apiproxy name you specify must refer to a directory."
       echoerror
       usage
