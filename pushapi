@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo
 #
 #
-# Last Saved: <2015-October-06 13:23:31>
+# Last Saved: <2015-November-03 17:03:42>
 #
 # ----------------------------------------------------------------
 #
@@ -365,14 +365,14 @@ function ProduceAndMaybeShowZip() {
   local curdir
   local zipout
 
-  if [ $verbosity -gt 0 ]; then
-    echo "Creating the zip..."
-  fi
   if [ -f $apiproxy.zip ]; then
     if [ $verbosity -gt 0 ]; then
-      echo "removing the zip..."
+      echo "removing the existing zip..."
     fi
     rm -rf $apiproxy.zip
+  fi
+  if [ $verbosity -gt 0 ]; then
+    echo "Creating the zip..."
   fi
 
   curdir=`pwd`
