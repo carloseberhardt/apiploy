@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo
 #
 #
-# Last Saved: <2015-November-03 17:03:42>
+# Last Saved: <2015-November-03 18:38:14>
 #
 # ----------------------------------------------------------------
 #
@@ -82,7 +82,10 @@ TAB=$'\t'
 # url=api_management_url (eg, https://api.enterprise.apigee.com)
 
 PDIRNAME=`dirname $0`
-. $PDIRNAME/.pushapi
+
+if [ -f "$PDIRNAME/.pushapi" ]; then
+  . $PDIRNAME/.pushapi
+fi
 
 function echoerror() { echo "$@" 1>&2; }
 
