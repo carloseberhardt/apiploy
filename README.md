@@ -1,25 +1,25 @@
 pushapi
 =======
 
-A bash script to import an API proxy bundle to Apigee Edge, and 
-optionally deploy the imported revision to a particular environment. 
+A bash script to import an API proxy bundle to Apigee Edge, and
+optionally deploy the imported revision to a particular environment.
 
 This allows you to edit proxy files offline, and then import and deploy
-proxies remotely. 
+proxies remotely.
 
 Installation
 -----------
 
-To install, copy the script to a directory. Make sure to chmod the script so that it has execute permissions. (chmod 755 pushapi) 
+To install, copy the script to a directory. Make sure to chmod the script so that it has execute permissions. (chmod 755 pushapi)
 
 
 Usage
 -----
 
-    ./pushapi [options] <apiproxy directory>
+    ./pushapi [options] <API proxy directory>
 
-The apiproxy directory must contain the definition of the API proxy. For
-example, if the name of the directory is "myproxy" then the structure of
+The API proxy directory must contain the definition of the API proxy. For
+example, if the name of the directory is `myproxy` then the structure of
 that directory ought to be like this:
 
     myproxy/
@@ -41,19 +41,19 @@ that directory ought to be like this:
     myproxy/apiproxy/targets/...
 
 
-The default action is to zip up the directory and import the resulting .zip file apiproxy bundle into an Edge organization.  You can also optionally deploy the api proxy as well. 
+The default action is to zip up the directory and import the resulting .zip file API proxy bundle into an Edge organization.  You can also optionally deploy the API proxy as well.
 
-If you use a nodejs target in your proxy, the tool zips up dependent NPM modules specified in the package.json file, and sends up the entire modules.zip, within the proxy bundle. 
+If you use a nodejs target in your proxy, the tool zips up dependent NPM modules specified in the package.json file, and sends up the entire modules.zip, within the proxy bundle.
 
 
 Options
-------- 
+-------
 
      -h        display this message.
      -o org    the org to use.
      -e env    the environment to deploy to, or undeploy from.
      -d        deploy the revision. (default: no deploy). Requires environment (-e)
-     -n name   override the name of the apiproxy. (default: use the directory name)
+     -n name   override the name of the API proxy. (default: use the directory name)
      -S url    the base server url to use.
      -u creds  authn credentials for the API calls to the Edge management server.
      -c        read authn credentials from the .netrc file
@@ -69,14 +69,14 @@ Options
 How it Works
 ------------
 
-The sript uses the administrative APIs exposed by Apigee Edge to perform vrious actions, including:
+The script uses the administrative APIs exposed by Apigee Edge to perform various actions, including:
 
  - checking for existing revisions of an API proxy
  - checking for the deployment status of revisions of an API proxy
  - undeploying revisions
  - deleting revisions (Warning! loss of data possible!)
- - importing bundles to Edge as a new revision of an apiproxy
- - deploying an imported api proxy
+ - importing bundles to Edge as a new revision of an API proxy
+ - deploying an imported API proxy
 
 The script invokes these APIs using the cURL utility; it echoes the cURL commands as it runs
 them, and checks the output status of those commands in order to handle
@@ -84,29 +84,29 @@ failures. You need to have curl available on the path.
 
 
 
-Examples 
+Examples
 --------
 
-1. import an API called xyz-xform to the org named 'demo11':
+1. import an API proxy called xyz-xform to the org named 'demo11':
 
     ./pushapi -c -o demo11 xyz-xform
 
-  The apiproxy will get a new revision. The output of the script will
+  The API proxy will get a new revision. The output of the script will
   tell you the revision number. This will not deploy the proxy.
 
   In this case there should be a directory called xyz-xform in the
   current directory, and it should contain exactly one
-  subdirectory, called apiproxy, and in there should be the requisite
+  subdirectory, called `apiproxy`, and in there should be the requisite
   Apigee Edge proxy directory tree, containing all the files in your proxy.
 
-2. import an API called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test':
+2. import an API proxy called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test':
 
     ./pushapi -c -o demo11 -e test -d xyz-xform
 
-  This will create a new revision of the API proxy.  The output of the script will tell you the revision number. 
+  This will create a new revision of the API proxy.  The output of the script will tell you the revision number.
 
 
-3. import an API called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test', with verbose output:
+3. import an API proxy called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test', with verbose output:
 
     ./pushapi -c -v -o demo11 -e test -d xyz-xform
 
@@ -114,7 +114,7 @@ Examples
   use two -q's then you get "silent" operation. If you use additional
   -v's then you get more verbosity.
 
-4. just create the apiproxy zip bundle, don't import or deploy: 
+4. just create the API proxy zip bundle, don't import or deploy:
 
     ./pushapi -z xyz-xform
 
@@ -130,7 +130,7 @@ Examples
 
     ./pushapi -c -o demo11 -e test -x abc
 
-8. delete all but the most recent 10 revisions of the mayo1 proxy:
+8. delete all but the most recent 10 revisions of the mayo1 API proxy:
 
     ./pushapi -c -o demo11 -C 10 mayo1
 
@@ -167,14 +167,14 @@ Also, you can eliminate the credentials from the .pushapi file by using
 the -c option and placing the credentials in the .netrc file.
 
 
-Using this with OPDK 
+Using this with OPDK
 ------------------------
 
-This works against Apigee Edge public cloud or Apigee Edge OPDK.  The way you specify the management server target is with the -S option.  It defaults to https://api.enterprise.apigee.com today, but you can point it to a local OPDK via something like 
+This works against Apigee Edge public cloud or Apigee Edge OPDK.  The way you specify the management server target is with the -S option.  It defaults to https://api.enterprise.apigee.com today, but you can point it to a local OPDK via something like
 
     ./pushapi -c -S http://api.edgemgmt -o demo11 -C 10 mayo1
 
-...and in this case the urls the script will use will be like 
+...and in this case the urls the script will use will be like
 
     http://api.edgemgmt/v1/o/demo11/...
 
@@ -182,15 +182,15 @@ This works against Apigee Edge public cloud or Apigee Edge OPDK.  The way you sp
 Credentials
 ------------------------
 
-You need to pass your administrative credentials to the script in some way. Use one of these three ways: 
+You need to pass your administrative credentials to the script in some way. Use one of these three ways:
 
   - the -u option, specifying the creds on the command line
-  - the -c option, telling the script to look in .netrc.  Curl actually can 
-    look in the .netrc file for your creds, so this is a nice option if 
-    you don't want to constantly have to specify credentials. 
+  - the -c option, telling the script to look in .netrc.  Curl actually can
+    look in the .netrc file for your creds, so this is a nice option if
+    you don't want to constantly have to specify credentials.
   - in the .pushapi file, as a default setting.
 
-Most of the examples above show the use of the -c option.  You could replace -c in any of those examples with -u username:password . 
+Most of the examples above show the use of the -c option.  You could replace -c in any of those examples with -u username:password .
 
 
 
