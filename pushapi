@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo
 #
 #
-# Last Saved: <2016-February-19 14:56:24>
+# Last Saved: <2016-April-11 18:19:42>
 #
 # ----------------------------------------------------------------
 #
@@ -239,7 +239,7 @@ function ProduceAndMaybeShowZip() {
     exit 1
   fi
 
-  zipout=`zip -r "$curdir/$apiproxy.zip" apiproxy $otherfiles -x "*/*.*~" -x "*/Icon*" -x "*/#*.*#" -x "*/node_modules/*"`
+  zipout=`zip -r "$curdir/$apiproxy.zip" apiproxy $otherfiles -x "*/*.*~" -x "*/.tern-port" -x "*/Icon*" -x "*/#*.*#" -x "*/node_modules/*"`
   cd "$curdir"
 
   if [ $verbosity -gt 1 ]; then
@@ -474,10 +474,10 @@ while getopts "hqve:o:n:u:cdS:K:xXz" opt; do
     e) environment=$OPTARG ;;
     o) org=$OPTARG ;;
     n) proxyname=$OPTARG ;;
-    u) credentials=$OPTARG ;;
+    u) credentials=$OPTARG && netrccreds=0 ;;
     c) netrccreds=1 ;;
     d) deploy=1 ;;
-    S) url=$OPTARG ;;
+    S) mgmtserver=$OPTARG ;;
     K) revstokeep=$OPTARG ;;
     x) undeployonly=1 && import=0 ;;
     X) removeall=1 && import=0 ;;
