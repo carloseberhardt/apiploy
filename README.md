@@ -101,34 +101,43 @@ Examples
 
 2. import an API proxy called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test':
 
-    ./pushapi -c -o demo11 -e test -d xyz-xform
+    ./pushapi -c -o demo11 -d -e test  xyz-xform
 
   This will create a new revision of the API proxy.  The output of the script will tell you the revision number.
+  To deploy a proxy, you need to specify both the -d option (which says "please deploy"), and the -e option (which
+  says which environment to deploy to). 
 
 
 3. import an API proxy called xyz-xform to the org named 'demo11', and deploy it to the environment named 'test', with verbose output:
 
-    ./pushapi -c -v -o demo11 -e test -d xyz-xform
+    ./pushapi -c -v -o demo11 -d -e test xyz-xform
 
   There is also a -q option for "quiet" operation.  By default, if you
   use two -q's then you get "silent" operation. If you use additional
   -v's then you get more verbosity.
 
-4. just create the API proxy zip bundle, don't import or deploy:
+2. import an API proxy, sourcing from the directory called ~/foo/bar/xyz-xform. The proxy will be named 'newname' and will be imported to the org named 'demo11'. It will be deployed to the environment named 'test':
 
-    ./pushapi -z xyz-xform
+    ./pushapi -c -o demo11 -d -e test -n newname  ~/foo/bar/xyz-xform
+
+  This will create a new revision of the API proxy.  The output of the script will tell you the revision number.
+
+
+4. just create the API proxy zip bundle from the given directory; don't import or deploy:
+
+    ./pushapi -z ~/foo/bar/xyz-xform
 
 5. undeploy any deployed revisions of the API proxy called abc from any environment in the demo11 org:
 
     ./pushapi -c -o demo11 -x abc
 
-6. undeploy any deployed revisions of the API proxy called abc from any environment in the demo11 org, and then delete all revisions:
-
-    ./pushapi -c -o demo11 -X abc
-
 7. undeploy any deployed revisions of the API proxy called abc from the environment test in the demo11 org:
 
     ./pushapi -c -o demo11 -e test -x abc
+
+6. undeploy any deployed revisions of the API proxy called abc from any environment in the demo11 org, and then DELETE ALL REVISIONS:
+
+    ./pushapi -c -o demo11 -X abc
 
 8. delete all but the most recent 10 revisions of the mayo1 API proxy:
 
