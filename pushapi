@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo
 #
 #
-# Last Saved: <2016-April-11 18:19:42>
+# Last Saved: <2016-December-16 14:43:14>
 #
 # ----------------------------------------------------------------
 #
@@ -53,7 +53,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-version="Monday, 31 August 2015, 15:38"
+version="Thursday, 15 December 2016, 19:32"
 ## defaults
 #environment=test
 environment=""
@@ -83,7 +83,7 @@ TAB=$'\t'
 
 PDIRNAME=`dirname $0`
 
-if [ -f "$PDIRNAME/.pushapi" ]; then
+if [[ -f "$PDIRNAME/.pushapi" ]]; then
   . $PDIRNAME/.pushapi
 fi
 
@@ -139,24 +139,24 @@ function usage() {
 ##    and the name of a tmp file in /tmp is placed there.
 ## 2. puts curl http_status into variable CURL_RC
 ##
-function MYCURL() {
+MYCURL() {
   local allargs
   local ix=0
   # grab the curl args
-  while [ "$1" ]; do
+  while [[ "$1" ]]; do
     allargs[$ix]=$1
     let "ix+=1"
     shift
   done
-  [ -z "${CURL_OUT}" ] && CURL_OUT=`mktemp /tmp/apigee-pushapi.curl.out.XXXXXX`
-  [ -f "${CURL_OUT}" ] && rm ${CURL_OUT}
-  [ $verbosity -gt 1 ] && echo && echo "curl ${allargs[@]}"
+  [[ -z "${CURL_OUT}" ]] && CURL_OUT=`mktemp /tmp/apigee-pushapi.curl.out.XXXXXX`
+  [[ -f "${CURL_OUT}" ]] && rm ${CURL_OUT}
+  [[ $verbosity -gt 1 ]] && echo && echo "curl ${allargs[@]}"
   # run the curl command
   CURL_RC=`curl $credentials -s -w "%{http_code}" -o "${CURL_OUT}" "${allargs[@]}"`
-  [ $verbosity -gt 1 ] && echo "==> ${CURL_RC}"
+  [[ $verbosity -gt 1 ]] && echo "==> ${CURL_RC}"
 }
 
-function timer() {
+timer() {
   if [[ $# -eq 0 ]]; then
       echo $(date '+%s')
   else
@@ -171,117 +171,113 @@ function timer() {
   fi
 }
 
-function CleanupAndFinish() {
-  if [ -f ${CURL_OUT} ]; then
-    rm -rf ${CURL_OUT}
-  fi
-  if [ $verbosity -gt 1 ]; then
+CleanupAndFinish() {
+  [[ -f ${CURL_OUT} ]] && rm -rf ${CURL_OUT}
+  if [[ $verbosity -gt 1 ]]; then
     echo
     echo "done"
     date +"%Y-%m-%d %H:%M:%S"
   fi
-  if [ $verbosity -gt 0 ]; then
-    printf 'Elapsed time: %s\n' $(timer $starttime)
-    echo
+  [[ $verbosity -gt 0 ]] && printf 'Elapsed time: %s\n\n' $(timer $starttime)
+}
+
+DeleteApiproxyArchive() {
+  if [[ -f "$zipname" ]]; then
+    [[ $verbosity -gt 0 ]] && echo "Deleting ${zipname}..."
+    rm -rf "$zipname"
   fi
 }
 
-function DeleteApiproxyArchive() {
-  if [ -f $apiproxy.zip ]; then
-    if [ $verbosity -gt 0 ]; then
-      echo "Deleting $apiproxy.zip..."
+ProduceAndMaybeShowZip() {
+    local curdir zipout TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
+    zipname="apiproxy-${apiproxy}-${TIMESTAMP}.zip"
+    [[ $ziponly -eq 0 ]] && zipname="/tmp/${zipname}"
+    if [[ -f $zipname ]]; then
+        [[ $verbosity -gt 0 ]] && echo "removing the existing zip (${zipname})..."
+        rm -rf $zipname
     fi
-    rm -rf $apiproxy.zip
-  fi
-}
+    [[ $verbosity -gt 0 ]] && echo "Creating the zip..."
 
-function ProduceAndMaybeShowZip() {
-  local curdir
-  local zipout
+    curdir=`pwd`
 
-  if [ -f $apiproxy.zip ]; then
-    if [ $verbosity -gt 0 ]; then
-      echo "removing the existing zip..."
+    # check for package.json
+    if [[ -f "$appdir/apiproxy/resources/node/package.json" ]]; then
+        [[ $verbosity -gt 0 ]] && echo "zipping node_modules..."
+        cd "$appdir/apiproxy/resources/node"
+        if [[ -f package.json ]]; then
+            [[ -f node_modules.zip ]] && rm -rf node_modules.zip
+            npmout=`npm install 2>&1`
+            [[ -f npm-debug.log ]] && rm npm-debug.log
+            zipout=`zip node_modules.zip -r node_modules/  -x "*/Icon*" 2>&1`
+        fi
+        [[ -d node_modules ]] && rm -rf node_modules
     fi
-    rm -rf $apiproxy.zip
-  fi
-  if [ $verbosity -gt 0 ]; then
-    echo "Creating the zip..."
-  fi
 
-  curdir=`pwd`
+    cd "$curdir"
+    cd "$appdir"
 
-  # check for package.json
-  if [[ -f "$appdir/apiproxy/resources/node/package.json" ]]; then
-      [ $verbosity -gt 0 ] && echo "zipping node_modules..."
-      cd "$appdir/apiproxy/resources/node"
-      if [[ -f package.json ]]; then
-        [ -f node_modules.zip ] && rm -rf node_modules.zip
-        npmout=`npm install 2>&1`
-        [ -f npm-debug.log ] && rm npm-debug.log
-        zipout=`zip node_modules.zip -r node_modules/  -x "*/Icon*" 2>&1`
-      fi
-      [ -d node_modules ] && rm -rf node_modules
-  fi
+    otherfiles=""
+    for f in LICENSE License.txt README.md Readme.txt ; do
+        [[ -f "${f}" ]] && otherfiles="${otherfiles} ${f}"
+    done  
 
-  cd "$curdir"
-  cd "$appdir"
+    if [[ ! -d apiproxy ]]; then
+        echo "Error: there is no apiproxy directory in "
+        pwd
+        echo
+        exit 1
+    fi
 
-  otherfiles=""
-  if [[ -f "README.md" ]]; then
-    otherfiles="README.md"
-  fi
+    zipout=$(zip -r "${zipname}" -r apiproxy $otherfiles -x "*/*.*~" -x "*/.tern-port"  -x "*/.DS_Store" -x "*/Icon*" -x "*/#*.*#" -x "*/node_modules/*")
+    cd "$curdir"
 
-  if [ ! -d apiproxy ]; then
-    echo "Error: there is no apiproxy directory in "
-    pwd
+    [[ $verbosity -gt 1 ]] && unzip -l ${zipname} && echo
+    
+    echo "the zip is available as ${zipname}"
+}
+
+choose_credentials() {
+    local username password
+    read -p "orgadmin username for org ${org} at ${mgmtserver} ? (blank to use .netrc): " username
     echo
-    exit 1
-  fi
-
-  zipout=`zip -r "$curdir/$apiproxy.zip" apiproxy $otherfiles -x "*/*.*~" -x "*/.tern-port" -x "*/Icon*" -x "*/#*.*#" -x "*/node_modules/*"`
-  cd "$curdir"
-
-  if [ $verbosity -gt 1 ]; then
-    #echo $zipout
-    unzip -l $apiproxy.zip
-    echo
-  fi
+    if [[ "$username" = "" ]] ; then  
+        credentials="-n"
+    else
+        echo -n "Org Admin Password: "
+        read -s password
+        echo
+        credentials="-u ${username}:${password}"
+    fi
 }
 
 
-function GetDeploymentStatus() {
+GetDeploymentStatus() {
   local env_array rev_array
   # inquire deployment status
   MYCURL -X GET "${mgmtserver}/v1/o/$org/apis/${proxyname}/deployments"
-  if [ ${CURL_RC} -eq 200 ]; then
-    if [ $verbosity -gt 1 ]; then
-      cat ${CURL_OUT}
-      echo
-    fi
+  if [[ ${CURL_RC} -eq 200 ]]; then
+    [[ $verbosity -gt 1 ]] && cat ${CURL_OUT} && echo
 
     ## extract the environment names and revision numbers from the list of deployments.
     env_array=(`cat ${CURL_OUT} | grep revision -B 1 | grep name | tr -d '\n'  | sed -E 's/"name"|[":,]//g'`)
     rev_array=(`cat ${CURL_OUT} | grep revision -A 5 | grep name | tr -d '\n'  | sed -E 's/"name"|[":,]//g'`)
  
     m=${#rev_array[@]}
-    if [ $verbosity -gt 1 ]; then
-      echo found ${m} deployed revisions
-    fi
+    [[ $verbosity -gt 1 ]] && echo "found ${m} deployed revisions"
 
     deployments=()
     let m-=1
-    while [ $m -ge 0 ]; do
+    while [[ $m -ge 0 ]]; do
       echo "${env_array[$m]}=${rev_array[$m]}"
       deployments+=("${env_array[$m]}=${rev_array[$m]}")
       let m-=1
     done
     have_deployments=1
 
-  elif [ ${CURL_RC} -ne 404 ]; then
+  elif [[ ${CURL_RC} -ne 404 ]]; then
     cat ${CURL_OUT}
     echo
-    if [  ${CURL_RC} -eq 403 -o ${CURL_RC} -eq 401 ]; then
+    if [[ ${CURL_RC} -eq 403 || ${CURL_RC} -eq 401 ]]; then
       echo You do not have permissions to do that.
     else
       echo An unknown error occurred.
@@ -299,12 +295,10 @@ function GetDeploymentStatus() {
 }
 
 
-function GetDeploymentEnvironments() {
+GetDeploymentEnvironments() {
   local d env
   # inquire deployment status
-  if [ ${have_deployments} -eq 0 ]; then
-    GetDeploymentStatus
-  fi
+  [[ ${have_deployments} -eq 0 ]] && GetDeploymentStatus
 
   deployed_envs=()
   for d in "${!deployments[@]}"; do
@@ -314,12 +308,10 @@ function GetDeploymentEnvironments() {
 }
 
 
-function GetDeploymentRevisions() {
+GetDeploymentRevisions() {
   local deployment rev
   # inquire deployment status
-  if [ ${have_deployments} -eq 0 ]; then
-    GetDeploymentStatus
-  fi
+  [[ ${have_deployments} -eq 0 ]] && GetDeploymentStatus
 
   deployed_revs=()
   for deployment in ${deployments[@]}; do
@@ -328,103 +320,74 @@ function GetDeploymentRevisions() {
   done
 }
 
-function InquireDeployment() {
+InquireDeployment() {
   local rev1 env1 is_deployed deployment env rev
   rev1=$1
   env1=$2
   is_deployed=0
   for deployment in ${deployments[@]}; do
     env=`expr "$deployment" : '\([^=]*\)'`
-    if [ "X$env" = "X$env1" ]; then
+    if [[ "X$env" = "X$env1" ]]; then
       rev=`expr "$deployment" : '[^=]*=\([^=]*\)'`
-      if [ "X$rev" = "X$rev1" ]; then
-        is_deployed=1
-      fi
+      [[ "X$rev" = "X$rev1" ]] && is_deployed=1
     fi
   done
   echo $is_deployed
 }
 
 
-
-function DeleteRevIfNotDeployed() {
+DeleteRevIfNotDeployed() {
   # maybe delete revisions of an apiproxy
-  local rev1 env1 is_deployed
-  rev1=$1
-  env1=$2
-  if [ ${have_deployments} -eq 0 ]; then
-    GetDeploymentStatus
-  fi
+  local rev1=$1 env1=$2 is_deployed=0
+  [[ ${have_deployments} -eq 0 ]] && GetDeploymentStatus
 
-  is_deployed=0
-  if [ ${#deployed_envs[@]} -gt 0 ]; then
+  if [[ ${#deployed_envs[@]} -gt 0 ]]; then
     for env in ${deployed_envs[@]}; do
-      if [ $is_deployed -eq 0 ]; then
+      if [[ $is_deployed -eq 0 ]]; then
         is_deployed=`InquireDeployment $rev1 $env`
       fi
     done
   fi
-  if [ $is_deployed -eq 0 ]; then
-    if [ $verbosity -gt 0 ]; then
-      echo revision ${rev1}: Deleting the revision ...
-    fi
+  if [[ $is_deployed -eq 0 ]]; then
+    [[ $verbosity -gt 0 ]] && echo "revision ${rev1}: Deleting the revision ..."
+
     MYCURL -X DELETE "${mgmtserver}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
-    if [ $verbosity -gt 1 ]; then
+    if [[ $verbosity -gt 1 ]]; then
       cat ${CURL_OUT}
       echo
     fi
-    if [ ${CURL_RC} -ne 200 ]; then
+    if [[ ${CURL_RC} -ne 200 ]]; then
       echo The delete failed.
       exit
     fi
   else
-    if [ $verbosity -gt 0 ]; then
-      echo revision ${rev1}: NOT Deleting the revision, it is currently deployed ...
-    fi
+      [[ $verbosity -gt 0 ]] && echo "revision ${rev1}: NOT Deleting the revision, it is currently deployed ..."
   fi
 }
 
-function MaybeUndeployAndMaybeDelete() {
+MaybeUndeployAndMaybeDelete() {
   # maybe undeploy and maybe delete revisions of an apiproxy
-  local rev1
-  local env1
-  local want_undeploy
-  rev1=$1
-  env1=$2
-  want_undeploy=0
+  local rev1=$1 env1=$2 want_undeploy=0
+  [[ ${have_deployments} -eq 0 ]] && GetDeploymentStatus
 
-  if [ ${have_deployments} -eq 0 ]; then
-    GetDeploymentStatus
-  fi
-
-  if [ ${#deployed_envs[@]} -gt 0 ]; then
+  if [[ ${#deployed_envs[@]} -gt 0 ]]; then
     for env in ${deployed_envs[@]}; do
-      # if [ $verbosity -gt 1 ]; then
-      #   echo considering env $env
-      # fi
-      if [ -z "$env1" ]; then
+      if [[ -z "$env1" ]]; then
         want_undeploy=1
-      elif [ "X$env1" = "X$env" ]; then
+      elif [[ "X$env1" = "X$env" ]]; then
         want_undeploy=`InquireDeployment $rev1 $env`
-        if [ $want_undeploy -eq 0 ]; then
-          if [ $verbosity -gt 0 ]; then
-            echo revision $rev1: Not deployed to env $env1. No un-deployment necessary...
-          fi
-        fi
+        [[ $want_undeploy -eq 0  && $verbosity -gt 0 ]] && echo "revision $rev1: Not deployed to env $env1. No un-deployment necessary..."
       fi
 
-      if [ $want_undeploy -gt 0 ]; then
-        if [ $verbosity -gt 0 ]; then
-          echo revision $rev1: Undeploying from [${env}]...
-        fi
+      if [[ $want_undeploy -gt 0 ]]; then
+        [[ $verbosity -gt 0 ]] && echo "revision $rev1: Undeploying from [${env}]..."
         MYCURL -X POST "${mgmtserver}/v1/o/$org/apis/$proxyname/revisions/${rev1}/deployments?action=undeploy&env=${env}"
-        if [ $verbosity -gt 1 ]; then
-          cat ${CURL_OUT}
-          echo
-        fi
+        [[ $verbosity -gt 1 ]] && cat ${CURL_OUT} && echo
         ## check return status, exit on fail.
-        if [ ${CURL_RC} -ne 200 ]; then
-          echo The undeploy failed.
+        if [[ ${CURL_RC} -ne 200 ]]; then
+            echo The undeploy failed.
+            echo
+            echo CURL_RC = ${CURL_RC}
           echo
           CleanupAndFinish
           exit 1
@@ -433,22 +396,17 @@ function MaybeUndeployAndMaybeDelete() {
     done
 
   else
-    if [ $verbosity -gt 0 ]; then
-      echo "revision $rev1: Not deployed; No un-deployment necessary."
-    fi
+    [[ $verbosity -gt 0 ]] && echo "revision $rev1: Not deployed; No un-deployment necessary."
   fi
 
-  if [ $removeall -gt 0 ]; then
-    if [ $verbosity -gt 0 ]; then
-      echo revision ${rev1}: Deleting the revision ...
-    fi
+  if [[ $removeall -gt 0 ]]; then
+    [[ $verbosity -gt 0 ]] && echo "revision ${rev1}: Deleting the revision ..."
     MYCURL -X DELETE "${mgmtserver}/v1/o/$org/apis/$proxyname/revisions/${rev1}"
-    if [ $verbosity -gt 1 ]; then
-      cat ${CURL_OUT}
-      echo
-    fi
-    if [ ${CURL_RC} -ne 200 ]; then
+    [[ $verbosity -gt 1 ]] && cat ${CURL_OUT} && echo
+    if [[ ${CURL_RC} -ne 200 ]]; then
       echo The delete failed.
+      echo
+      echo CURL_RC = ${CURL_RC}
       echo
       CleanupAndFinish
       exit 1
@@ -489,25 +447,25 @@ done
 shift $(($OPTIND - 1))
 
 ## allow for an apiproxy directory that is not local
-if [ $# -gt 0 ]; then
+if [[ $# -gt 0 ]]; then
   appdir=$1
   apiproxy=`basename "$1"`
 fi
 
 
-if [ "X$apiproxy" = "X" ]; then
+if [[ "X$apiproxy" = "X" ]]; then
   echoerror "You must specify an apiproxy."
   echoerror
   usage
   exit 1
 fi
 
-if [ "X$proxyname" = "X" ]; then
+if [[ "X$proxyname" = "X" ]]; then
   proxyname=$apiproxy
 fi
 
-if [ $import -gt 0 -o $ziponly -gt 0 ]; then
-  if [ ! -d "$1" ]; then
+if [[ $import -gt 0 || $ziponly -gt 0 ]]; then
+  if [[ ! -d "$1" ]]; then
       echoerror "The directory $1 does not exist."
       echoerror "The apiproxy name you specify must refer to a directory."
       echoerror
@@ -516,20 +474,20 @@ if [ $import -gt 0 -o $ziponly -gt 0 ]; then
   fi
 fi
 
-if [ $ziponly -gt 0 -a $undeployonly -gt 0 ] ; then
+if [[ $ziponly -gt 0 && $undeployonly -gt 0 ]]; then
     echoerror "Mutually exclusive. Choose at most one of -x or -z ."
     echoerror
     usage
     exit 1
 fi
 
-if [ $deploy -gt 0 -o $import -gt 0 -o $undeployonly -gt 0 -o $removeall -gt 0 -o $revstokeep -gt 0 ] ; then
+if [[ $deploy -gt 0 || $import -gt 0 || $undeployonly -gt 0 || $removeall -gt 0 || $revstokeep -gt 0 ]]; then
 
   ## need credentials for any of these actions
-  if [ ${netrccreds} -eq 1 ]; then
+  if [[ ${netrccreds} -eq 1 ]]; then
     echo "using credentials from .netrc"
     credentials='-n'
-  elif [ "X$credentials" = "X" ]; then
+  elif [[ "X$credentials" = "X" ]]; then
       choose_credentials
       credentials="-u $credentials"
   else
@@ -558,7 +516,7 @@ if [ $deploy -gt 0 -o $import -gt 0 -o $undeployonly -gt 0 -o $removeall -gt 0 -
       exit 1
   fi
 
-  if [ $deploy -gt 0 ]; then
+  if [[ $deploy -gt 0 ]]; then
     # to deploy, we need to know the environment
     if [[ -z "$environment" ]]; then
         echoerror "missing environment"
@@ -571,39 +529,30 @@ fi
 
 # arguments appear to be valid
 
-if [ $verbosity -gt 1 ]; then
-  echo verbosity = $verbosity
-fi
+[[ $verbosity -gt 1 ]] && echo "verbosity = $verbosity"
 
-if [ $ziponly -gt 0 ]; then
+if [[ $ziponly -gt 0 ]]; then
   ProduceAndMaybeShowZip
-  echo "the zip is available as $apiproxy.zip"
 else
 
   # We need to maybe remove old revisions, maybe import (and maybe deploy) or possibly undeploy
 
-  if [ $undeployonly -gt 0 -o $removeall -gt 0 -o $revstokeep -gt 0 ]; then
-    if [ $verbosity -gt 0 ]; then
-      echo
-      echo "Inquiring existing revisions..."
-    fi
+  if [[ $undeployonly -gt 0 || $removeall -gt 0 || $revstokeep -gt 0 ]]; then
+    [[ $verbosity -gt 0 ]] && echo && echo "Inquiring existing revisions..."
     MYCURL -X GET "${mgmtserver}/v1/o/$org/apis/$proxyname"
-    if [ $verbosity -gt 1 ]; then
-      cat ${CURL_OUT}
-      echo
-    fi
+    [[ $verbosity -gt 1 ]] && cat ${CURL_OUT} && echo
 
-    if [ ${CURL_RC} -eq 200 ]; then
+    if [[ ${CURL_RC} -eq 200 ]]; then
       # extract the list of revisions from the output
       rev_array=(`cat ${CURL_OUT} | grep revision | sed -E 's/"revision"|[]":,[]//g'`)
       m=${#rev_array[@]}
-      if [ $m -gt 0 ]; then 
+      if [[ $m -gt 0 ]]; then 
         echo "There are existing revisions of that API Proxy"
         echo "${rev_array[@]}"
-        if [ $revstokeep -gt 0 ]; then
+        if [[ $revstokeep -gt 0 ]]; then
           numExistingRevs=${#rev_array[*]}
           index=$((numExistingRevs-revstokeep))
-          if [ $index -lt 1 ]; then
+          if [[ $index -lt 1 ]]; then
             echo "Nothing to do. retaining all $numExistingRevs existing revisions."
           else
             echo deleting revisions ${rev_array[@]::$index} ...
@@ -621,32 +570,22 @@ else
         echo "There are no existing revisions of that API Proxy."
       fi
 
-      if [ $removeall -gt 0 ]; then
-        if [ $verbosity -gt 0 ]; then
-          echo "Deleting the API Proxy..."
-        fi
+      if [[ $removeall -gt 0 ]]; then
+        [[ $verbosity -gt 0 ]] && echo "Deleting the API Proxy..."
 
         MYCURL -X DELETE "${mgmtserver}/v1/o/$org/apis/$proxyname"
-        if [ $verbosity -gt 1 ]; then
-          cat ${CURL_OUT}
-          echo
-        fi
+        [[ $verbosity -gt 1 ]] && cat ${CURL_OUT} && echo
         if [ ${CURL_RC} -eq 200 ]; then
-          if [ $verbosity -gt 0 ]; then
-            echo "deleted."
-          fi
+          [[ $verbosity -gt 0 ]] && echo "deleted."
         else
-          if [ $verbosity -lt 0 ]; then
-            cat ${CURL_OUT}
-            echo
-          fi
+          [[ $verbosity -lt 0 ]] && cat ${CURL_OUT} && echo
           echo "The DELETE failed."
         fi
       fi
 
-    elif [ ${CURL_RC} -eq 401 ]; then
+    elif [[ ${CURL_RC} -eq 401 ]]; then
       echo "Not authorized to do that."
-    elif [ ${CURL_RC} -eq 404 ]; then
+    elif [[ ${CURL_RC} -eq 404 ]]; then
       echo "No deployments found for that API proxy."
     else
       echo "status =" ${CURL_RC}
@@ -660,30 +599,27 @@ else
     ProduceAndMaybeShowZip
 
     # import
-    if [ $verbosity -gt 0 ]; then
-      echo "Importing the bundle as $proxyname..."
-    fi
-    MYCURL -X POST "${mgmtserver}/v1/o/$org/apis?action=import&name=$proxyname" -T $apiproxy.zip -H "Content-Type: application/octet-stream"
-    [ $verbosity -gt 1 ] && cat ${CURL_OUT} && echo && echo
+    [[ $verbosity -gt 0 ]] && echo "Importing the bundle as $proxyname..."
+    MYCURL -X POST "${mgmtserver}/v1/o/$org/apis?action=import&name=$proxyname" -T $zipname -H "Content-Type: application/octet-stream"
+    [[ $verbosity -gt 1 ]] && cat ${CURL_OUT} && echo && echo
 
-    if [ ${CURL_RC} -ne 201 ]; then
-      echo
-      if [ $verbosity -le 1 ]; then
-        cat ${CURL_OUT}
+    if [[ ${CURL_RC} -ne 201 ]]; then
+        echoerror "There was an error importing that API bundle..."
         echo
-      fi
-      echoerror "There was an error importing that API bundle..."
-      DeleteApiproxyArchive
-      echo
-      CleanupAndFinish
-      exit 1
+        echo CURL_RC = ${CURL_RC}
+        echo
+        [[ $verbosity -le 1 ]] && cat ${CURL_OUT} && echo
+        DeleteApiproxyArchive
+        echo
+        CleanupAndFinish
+        exit 1
     fi
 
     ## what revision did we just import?
     rev=`cat ${CURL_OUT} | grep \"revision\" | tr '\r\n' ' ' | sed -E 's/"revision"|[:, "]//g'`
     echo This is revision $rev
 
-    if [ $deploy -gt 0 ]; then
+    if [[ $deploy -gt 0 ]]; then
       # # if the request is to deploy, first we must un-deploy any
       # # existing revision from the target environment.
       # if [ $verbosity -gt 0 ]; then
@@ -714,11 +650,8 @@ else
       #   fi
       # fi
 
-      # deploy
-      if [ $verbosity -gt 0 ]; then
-        #echo "revision $rev of API proxy $proxyname: Deploying to [${environment}]..."
-        echo "revision $rev: Deploying..."
-      fi
+      [[ $verbosity -gt 0 ]] && echo "revision $rev: Deploying..."
+
       # override will implicitly undeploy any existing deployed revisions
       MYCURL -X POST \
         -H content-type:application/x-www-form-urlencoded \
