@@ -15,7 +15,7 @@
 #     ./pushapi -v -o org1 -e test -d foo
 #
 #
-# Last Saved: <2016-December-16 14:43:14>
+# Last Saved: <2017-March-08 16:36:34>
 #
 # ----------------------------------------------------------------
 #
@@ -102,6 +102,7 @@ function usage() {
   echo "  -o org    the org to use."
   echo "  -e env    the environment to deploy to."
   echo "  -d        deploy the revision. (default: no deploy). Requires environment (-e)"
+  echo "  -p path   the basepath at which to deploy the apiproxy. (default: use /)"
   echo "  -n name   override the name of the apiproxy. (default: use the directory name)"
   echo "  -S url    the base server url to use."
   echo "  -u creds  authn credentials for the API calls to the Edge management server."
@@ -109,6 +110,7 @@ function usage() {
   echo "  -x        undeploy any revs of the API in the environment; do not deploy a new rev."
   echo "  -X        undeploy & DELETE all revs of the API; do not deploy a new revision."
   echo "  -K num    delete all but last num revs of the API (if not deployed)"
+  echo "  -I        do not import. Sometimes useful with -K."
   echo "  -z        just zip the bundle; do not deploy a new revision."
   echo "  -q        quiet; decrease verbosity by 1"
   echo "  -v        verbose; increase verbosity by 1"
@@ -183,7 +185,7 @@ CleanupAndFinish() {
 
 DeleteApiproxyArchive() {
   if [[ -f "$zipname" ]]; then
-    [[ $verbosity -gt 0 ]] && echo "Deleting ${zipname}..."
+    [[ $verbosity -gt 0 ]] && echo "Deleting temp zip ${zipname} ..."
     rm -rf "$zipname"
   fi
 }
@@ -198,7 +200,7 @@ ProduceAndMaybeShowZip() {
     fi
     [[ $verbosity -gt 0 ]] && echo "Creating the zip..."
 
-    curdir=`pwd`
+    curdir=$(pwd)
 
     # check for package.json
     if [[ -f "$appdir/apiproxy/resources/node/package.json" ]]; then
@@ -229,11 +231,11 @@ ProduceAndMaybeShowZip() {
     fi
 
     zipout=$(zip -r "${zipname}" -r apiproxy $otherfiles -x "*/*.*~" -x "*/.tern-port"  -x "*/.DS_Store" -x "*/Icon*" -x "*/#*.*#" -x "*/node_modules/*")
+    [[ $ziponly -eq 1 ]] && mv "${zipname}" "$curdir"
     cd "$curdir"
 
     [[ $verbosity -gt 1 ]] && unzip -l ${zipname} && echo
-    
-    echo "the zip is available as ${zipname}"
+    [[ $verbosity -gt 1 ]] && echo "Temporary zip: ${zipname}"
 }
 
 choose_credentials() {
@@ -414,6 +416,32 @@ MaybeUndeployAndMaybeDelete() {
   fi
 }
 
+SetProxyName() {
+    # # old way - just use the dir that contains apiproxy as the name
+    # proxyname=$apiproxy
+
+    # new way: extract the name from the xxx.xml file 
+    local curdir=$(pwd) xmlfiles tokens
+    appdir=${appdir%/}
+    if [[ ! -d "${appdir}/apiproxy" ]]; then
+        echo "Error: there is no apiproxy directory in $appdir"
+        echo
+        exit 1
+    fi
+    xmlfiles=($(find "${appdir}/apiproxy" -maxdepth 1 -name '*.xml'))
+    # glob not working ?
+    #xmlfiles=("${appdir}/apiproxy/*.xml")
+    if [[ ${#xmlfiles[@]} -ne 1 ]]; then
+        printf "Error: expected to find a single XML file in %s, found %d instead\n"  "${appdir}/apiproxy" ${#xmlfiles[@]}
+        printf ""
+        exit 1
+    fi
+
+    [[ $verbosity -gt 1 ]] && printf "found one file: %s\n" ${xmlfiles[0]}
+    tokens=($(grep APIProxy "${xmlfiles[0]}" | grep name | tr = ' ' | sed -e "s/['\"<>]//g"))
+    proxyname="${tokens[${#tokens[@]} - 1]}"
+    [[ $verbosity -gt 1 ]] && printf "using %s as proxy name\n" $proxyname
+}
 
 
 #------------------------------------------------------
@@ -424,7 +452,7 @@ MaybeUndeployAndMaybeDelete() {
 starttime=$(timer)
 have_deployments=0
 
-while getopts "hqve:o:n:u:cdS:K:xXz" opt; do
+while getopts "hqve:o:n:u:cdp:S:K:IxXz" opt; do
   case $opt in
     h) usage ;;
     q) verbosity=$(($verbosity-1)) ;;
@@ -435,8 +463,10 @@ while getopts "hqve:o:n:u:cdS:K:xXz" opt; do
     u) credentials=$OPTARG && netrccreds=0 ;;
     c) netrccreds=1 ;;
     d) deploy=1 ;;
+    p) basepath=$OPTARG ;;
     S) mgmtserver=$OPTARG ;;
     K) revstokeep=$OPTARG ;;
+    I) import=0 ;;
     x) undeployonly=1 && import=0 ;;
     X) removeall=1 && import=0 ;;
     z) ziponly=1 && import=0 ;;
@@ -453,7 +483,7 @@ if [[ $# -gt 0 ]]; then
 fi
 
 
-if [[ "X$apiproxy" = "X" ]]; then
+if [[ "X$apiproxy" = "X"  && revstokeep -eq -1 ]]; then
   echoerror "You must specify an apiproxy."
   echoerror
   usage
@@ -461,10 +491,13 @@ if [[ "X$apiproxy" = "X" ]]; then
 fi
 
 if [[ "X$proxyname" = "X" ]]; then
-  proxyname=$apiproxy
+    SetProxyName
 fi
 
-if [[ $import -gt 0 || $ziponly -gt 0 ]]; then
+if [[ $import -gt 0 || $ziponly -gt 0 || $revstokeep -eq -1 ]]; then
+    echo import $import
+    echo ziponly $ziponly
+    echo revstokeep $revstokeep
   if [[ ! -d "$1" ]]; then
       echoerror "The directory $1 does not exist."
       echoerror "The apiproxy name you specify must refer to a directory."
@@ -650,13 +683,17 @@ else
       #   fi
       # fi
 
+        [[ -z "${basepath}" ]] && basepath="/"
       [[ $verbosity -gt 0 ]] && echo "revision $rev: Deploying..."
 
       # override will implicitly undeploy any existing deployed revisions
+      formparams="override=true&delay=60"
+      [[ ! -z "${basepath}" ]] && formparams="${formparams}&basepath=${basepath}"
+      
       MYCURL -X POST \
         -H content-type:application/x-www-form-urlencoded \
         "${mgmtserver}/v1/o/${org}/e/${environment}/apis/${proxyname}/revisions/${rev}/deployments" \
-        -d "override=true&delay=60"
+        -d "${formparams}"
 
       if [[ ! ${CURL_RC} =~ 200 ]]; then
         echo
